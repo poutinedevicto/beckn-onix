@@ -19,7 +19,7 @@ export class HelmCommonServicesStack extends Stack {
         
         const eksCluster = props.eksCluster;
         const service = props.service;
-        const repository = "https://charts.bitnami.com/bitnami";
+        const repository = "oci://registry-1.docker.io/bitnamicharts";
         const namespace = props.config.NAMESPACE;
 
         const generateRandomPassword = (length: number) => {
@@ -32,8 +32,10 @@ export class HelmCommonServicesStack extends Stack {
             chart: "redis",
             namespace: service + namespace,
             release: "redis",
+            version: "21.2.3",
             wait: false,
-            repository: repository,
+            // LOCAVORA https://github.com/aws/aws-cdk/issues/32187 
+            repository: repository + "/redis",
             values: {
                 auth: {
                     enabled: false
@@ -54,8 +56,10 @@ export class HelmCommonServicesStack extends Stack {
             chart: "mongodb",
             namespace: service + namespace,
             release: "mongodb",
+            version: "16.5.21",
             wait: false,
-            repository: repository,
+            // LOCAVORA https://github.com/aws/aws-cdk/issues/32187
+            repository: repository + "/mongodb",
             values: {
                 persistence: {
                     storageClass: "gp2"
@@ -68,8 +72,10 @@ export class HelmCommonServicesStack extends Stack {
             chart: "rabbitmq",
             namespace: service + namespace,
             release: "rabbitmq",
+            version: "16.0.7",            
             wait: false,
-            repository: repository,
+            // LOCAVORA https://github.com/aws/aws-cdk/issues/32187
+            repository: repository + "/rabbitmq",
             values: {
                 persistence: {
                     enabled: true,
