@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: whoami-app
+  labels:
+    app: whoami-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: whoami-app
+  template:
+    metadata:
+      labels:
+        app: whoami-app
+    spec:
+      containers:
+      - name: whoami-app
+        image: traefik/whoami:latest # Or your custom whoami app image
+        ports:
+        - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: whoami-app-svc
+spec:
+  selector:
+    app: whoami-app
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: whoami-app-ingress
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web # Route through Traefik's 'web' entrypoint (port 80)
+spec:
+  rules:
+  - host: localhost
+    http:
+      paths:
+      - path: /whoami # Or whatever path your whoami service listens on
+        pathType: Prefix
+        backend:
+          service:
+            name: whoami-app-svc
+            port:
+              number: 80
