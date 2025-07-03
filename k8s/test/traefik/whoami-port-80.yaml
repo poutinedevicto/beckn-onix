@@ -40,8 +40,7 @@ metadata:
     traefik.ingress.kubernetes.io/router.entrypoints: web # Route through Traefik's 'web' entrypoint (port 80)
 spec:
   rules:
-  - host: localhost
-    http:
+  - http: # On peut utiliser host comme condition aussi
       paths:
       - path: /whoami # Or whatever path your whoami service listens on
         pathType: Prefix
