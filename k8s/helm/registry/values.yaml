@@ -41,13 +41,14 @@ securityContext: {}
   # runAsUser: 1000
 
 service:
-  type: ClusterIP
+  # LOCAVORA was ClusterIP
+  type: NodePort
   port: 3030
   secondaryPort: 3000
 
 # Ingress definition for AWS Application Loadbalancer
 ingress:
-  enabled: true  # If enabled, HTTP port 80 listener is open on AWS ALB. Set to false to disable Ingress. Without ingress service will be scoped to K8s cluster.
+  enabled: false  # LOCAVORA disabled - using NodePort for now
   tls:
     enabled: true  # Set to true to enable TLS with Aamzon Certificate Manager (ACM)
     # SSL certificate location if tls is enabled

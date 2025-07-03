@@ -10,6 +10,8 @@ spec:
   ports:
     - port: {{ .Values.service.port }}
       targetPort: registry-port
+      # LOCAVORA added
+      nodePort: 30030
       protocol: TCP
       name: http
   selector:
