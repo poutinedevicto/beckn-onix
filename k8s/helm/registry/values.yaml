@@ -46,7 +46,9 @@ service:
 
 # Ingress definition 
 ingress:
-  enabled: true  
+  enabled: true
+  # set using helm upgrade --set ingress.host=<>
+  host: localhost
   tls:
     enabled: true  # Set to true to enable TLS with Aamzon Certificate Manager (ACM)
     # SSL certificate location if tls is enabled

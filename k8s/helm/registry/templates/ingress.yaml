@@ -12,9 +12,10 @@ metadata:
 
 spec:
   rules:
-    - http:
+    - host: {{ .Values.ingress.host }}
+      http:
         paths:
-          - path: /registry
+          - path: /
             pathType: Prefix
             backend:
               service:
