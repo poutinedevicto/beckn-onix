@@ -1,0 +1,15 @@
+# helm upgrade traefik traefik/traefik -f k8s/gke/util/expose-traefik-dashboard.yaml --namespace traefik
+# helm upgrade re-utilise les valeurs deja specifiees, ex dans le install
+# Similar to the Rancher Desktop example, but for GKE clusters. (ex diff namespace)
+# IMPORTANT: ne pas utiliser ce fichier dans un cluster de production
+ingressRoute:
+  dashboard:
+    enabled: true
+ports:
+  traefik:
+    expose: 
+      default:
+        true # This exposes the Traefik dashboard service
+logs:
+  access:
+    enabled: true
