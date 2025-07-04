@@ -1,0 +1,35 @@
+# helm install traefik traefik/traefik -f traefik-helm-values.yaml --namespace traefik --create-namespace
+# Helm values pour traefik dans GKE: entrypoints similaires à ceux définis dans intégration Traefik de Rancher Desktop
+# helm get values traefik --all --kube-context rancher-desktop -n kube-system
+ports:
+  web:
+    port: 8000  # Internal port Traefik listens on for HTTP
+    expose: 
+      default: true
+    exposedPort: 80 # External port exposed by the LoadBalancer
+    protocol: TCP
+    # Optional: enable HTTP to HTTPS redirection for this entrypoint
+    # http:
+    #   redirections:
+    #     entryPoint:
+    #       to: websecure
+    #       scheme: https
+  websecure:
+    port: 8443 # Internal port Traefik listens on for HTTPS
+    expose: 
+      default: true
+    exposedPort: 443 # External port exposed by the LoadBalancer
+    protocol: TCP
+    # Optional: enable TLS for this entrypoint
+    # tls:
+    #   enabled: true
+    #   # You would typically manage certificates with cert-manager
+    #   # or reference Kubernetes Secrets containing your TLS certs
+    #   # options: {} # Refer to TLSOptions for advanced TLS settings
+
+  # Example for Traefik dashboard (not usually exposed externally in production)
+  traefik:
+    port: 9000
+    expose: 
+      default: false # Do not expose in PRODUCTION - voir k8s/helm/util/rancher-desktop/expose-traefik-dashboard.yaml pour exposer
+    protocol: TCP
