@@ -9,6 +9,9 @@ metadata:
     {{- include "common.labels" . | nindent 4 }}
   annotations:
     traefik.ingress.kubernetes.io/router.entrypoints: web, websecure
+    {{- if .Values.ingress.target_ip }}
+    external-dns.alpha.kubernetes.io/target: {{.Values.ingress.target_ip }}
+    {{- end }}
 
 spec:
   rules:
