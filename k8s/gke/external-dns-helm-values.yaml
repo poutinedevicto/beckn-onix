@@ -1,0 +1,30 @@
+# # helm upgrade --install external-dns external-dns/external-dns -f k8s/gke/external-dns-helm-values.yaml -f k8s/gke/external-dns-helm-values-do-not-commit.yaml --namespace external-dns --create-namespace 
+provider: google
+google:
+  project: "YOUR_GOOGLE_CLOUD_PROJECT_ID" # Replace with your GCP Project ID
+  managedZones: # Optional, but good practice to specify
+    - "your-managed-zone.com" # Replace with your Cloud DNS managed zone name (e.g., example.com)
+  
+# --- RBAC ---
+rbac:
+  create: true
+
+# --- Filter by Ingress/Service annotations ---
+# Only process Ingresses and Services with specific annotations
+# This is highly recommended to avoid ExternalDNS picking up unwanted resources.
+# For example, only Ingresses with 'external-dns.alpha.kubernetes.io/hostname' annotation
+# and Services with 'external-dns.alpha.kubernetes.io/hostname' or 'external-dns.alpha.kubernetes.io/target'
+# Will be processed.
+extraArgs:
+  - --source=ingress
+  - --source=service
+  - --txt-owner-id=my-gke-cluster-external-dns # Unique ID for TXT records
+  # Optional: Filter by specific annotations
+  # - --ingress-annotation-filter=kubernetes.io/ingress.class=nginx
+  # - --service-annotation-filter=kubernetes.io/load-balancer-type=NLB
+
+# --- Metrics (Optional) ---
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: true # If you have Prometheus Operator
