@@ -1,3 +1,5 @@
+# ATTENTION - Resource de Flux qui indique de suivre ./infrastructure/rancher-desktop/kustomization.yaml + ses dépendances
+# Ce n'est pas un fichier statique pour Kustomize (même Kind, apiVersion différent)
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
