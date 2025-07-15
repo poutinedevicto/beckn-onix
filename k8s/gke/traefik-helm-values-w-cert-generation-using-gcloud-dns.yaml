@@ -1,0 +1,40 @@
+# To upgrade traefik release with values to create managed certificates via Let's Encrypt ACEM intergation + Cloud DNS for DNS challenges
+
+# helm upgrade traefik traefik/traefik -f traefik-helm-values-w-cert-generation-using-gcloud-dns.yaml --namespace traefik
+
+# values.yaml for Traefik Helm Chart
+
+# --- Certificates Resolvers (ACME) ---
+# Configure Let's Encrypt with Google Cloud DNS via Workload Identity
+certificatesResolvers:
+  letsencrypt: # Name of your certificate resolver
+    acme:
+      email: YOUR_EMAIL_HERE # Crucial for Let's Encrypt notifications
+      storage: /data/acme.json # Path inside the Traefik pod for certificate storage
+      # STAGING "Let's Encrypt" staging environment for testing to avoid rate limits
+      caServer: https://acme-staging-v02.api.letsencrypt.org/directory
+      # PRODUCTION 
+      # caServer: https://acme-v02.api.letsencrypt.org/directory
+      dnsChallenge:
+        provider: gcloud # Specify the Google Cloud DNS provider
+        delayBeforeCheck: 0 # Adjust if you experience propagation issues
+        # No credentials are provided here because Workload Identity handles authentication.
+        # This is the key difference when using Workload Identity.
+        # Other optional settings:
+        # resolvers: # Optional: DNS resolvers to use for checking TXT records
+        #   - "8.8.8.8:53"
+        #   - "8.8.4.4:53"
+
+# --- Persistence for ACME Certificates ---
+persistence:
+  enabled: true
+
+# Sinon: ERR The ACME resolve is skipped from the resolvers list error="unable to get ACME account: open /data/acme.json: permission denied" resolver=letsencrypt 
+# Les volumes sont montés avec root comme owner sinon (ro pour les autres)
+podSecurityContext:
+  fsGroup: 65532
+  fsGroupChangePolicy: "OnRootMismatch"
+
+# --- Service Account Configuration (for Workload Identity) ---
+serviceAccount:
+  name: dns-admin # This is the Kubernetes Service Account name link to GSA with dns.admin role
