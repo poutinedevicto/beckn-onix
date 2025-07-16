@@ -11,7 +11,7 @@ spec:
     branch: k8s
   secretRef:
     name: flux-system
-  url: ssh://git@github.com/poutinedevicto/beckn-onix
+  url: https://github.com/poutinedevicto/beckn-onix.git
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
