@@ -1,19 +1,65 @@
-apiVersion: helm.cattle.io/v1
-kind: HelmChartConfig
+# Manual install of Traefik helm chart
+# NOTE Built-in Traefik must be disabled in Rancher Desktop
+# Preferences -> Kubernetes - > Options
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
 metadata:
   name: traefik
-  namespace: kube-system
+  namespace: locavora-infra
 spec:
-  valuesContent: |-
+  interval: 5m
+  install:
+    remediation:
+      retries: 3
+  chart:
+    spec:
+      chart: traefik
+      # Using the latest version available in the repository
+      # Will it always work to refer to the built-in Traefik in Rancher Desktop?
+      # version: 0.0 
+      sourceRef:
+        kind: HelmRepository
+        name: traefik
+        namespace: locavora-infra
+  values:
+    # Helm values pour traefik: entrypoints similaires à ceux définis dans intégration Traefik de Rancher Desktop
+    # helm get values traefik --all --kube-context rancher-desktop -n kube-system
+    ports:
+      web:
+        port: 8000  # Internal port Traefik listens on for HTTP
+        expose: 
+          default: true
+        exposedPort: 80 # External port exposed by the LoadBalancer
+        protocol: TCP
+        # Optional: enable HTTP to HTTPS redirection for this entrypoint
+        # http:
+        #   redirections:
+        #     entryPoint:
+        #       to: websecure
+        #       scheme: https
+      websecure:
+        port: 8443 # Internal port Traefik listens on for HTTPS
+        expose: 
+          default: true
+        exposedPort: 443 # External port exposed by the LoadBalancer
+        protocol: TCP
+        # Optional: enable TLS for this entrypoint
+        # tls:
+        #   enabled: true
+        #   # You would typically manage certificates with cert-manager
+        #   # or reference Kubernetes Secrets containing your TLS certs
+        #   # options: {} # Refer to TLSOptions for advanced TLS settings
+
+      # Traefik dashboard (not usually exposed externally in production)
+      traefik:
+        port: 9000
+        expose: 
+          default: true # Do not expose in PRODUCTION
+        protocol: TCP
+    # ingress route for the dashboard (:8080/dashboard)
     ingressRoute:
       dashboard:
         enabled: true
-    ports:
-      traefik:
-        expose: 
-          default:
-            true # This exposes the Traefik dashboard service
     logs:
       access:
-        enabled: true
-        
+        enabled: true # NOT IN PRODUCTION

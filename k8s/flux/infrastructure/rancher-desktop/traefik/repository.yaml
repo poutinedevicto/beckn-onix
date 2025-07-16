@@ -1,9 +1,10 @@
-# Used by built-in Traefik in Rancher Desktop
+# NOTE Traefik must be disabled in Rancher Desktop
+# Preferences -> Kubernetes - > Options
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:
   name: traefik
-  namespace: kube-system
+  namespace: locavora-infra
 spec:
   interval: 5m
   url: https://helm.traefik.io/traefik
