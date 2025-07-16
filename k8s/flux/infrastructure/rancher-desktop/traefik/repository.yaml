@@ -1,0 +1,9 @@
+# Used by built-in Traefik in Rancher Desktop
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  interval: 5m
+  url: https://helm.traefik.io/traefik
