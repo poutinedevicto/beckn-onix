@@ -50,11 +50,12 @@ spec:
         #   # or reference Kubernetes Secrets containing your TLS certs
         #   # options: {} # Refer to TLSOptions for advanced TLS settings
 
-      # Traefik dashboard (not usually exposed externally in production)
+      # Traefik (including dashboard - not usually exposed externally in production)
       traefik:
-        port: 9000
+        port: 18080
         expose: 
           default: true # Do not expose in PRODUCTION
+        exposedPort: 8080
         protocol: TCP
     # ingress route for the dashboard (:8080/dashboard)
     ingressRoute:
