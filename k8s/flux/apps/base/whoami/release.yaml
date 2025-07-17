@@ -26,13 +26,14 @@ metadata:
   namespace: locavora-test
 spec:
   rules:
-  - http:
+  - host: whoami
+    http:
       paths:
       - backend:
           service:
             name: whoami
             port:
               number: 80
-        path: /whoami
+        path: /
         pathType: Prefix
 

@@ -176,12 +176,36 @@ spec:
             runAsGroup: 65532
             runAsNonRoot: true
             runAsUser: 65532
-        # LOCAVORA see kustomization.yaml for the generation of the configMap
-        - envFrom:
+        # 2e container: the webhook sidecar
+        - image: renanqts/external-dns-openwrt-webhook:v0.1.0
+          imagePullPolicy: IfNotPresent
+          # LOCAVORA see kustomization.yaml for the generation of the configMap
+          envFrom:
           - configMapRef:
               name: external-dns-webhook-env
-          image: renanqts/external-dns-openwrt-webhook:v0.1.0
-          imagePullPolicy: IfNotPresent
+          # LOCAVORA - permet de donner une valeur locale à partir de la configMap
+          #            external-dns-webhook-env-custom à définir à 
+          #            ** l'extérieur ** de GIT
+          #            les env ont précédence sur envFrom 
+          env:
+          - name: PROVIDER_OPENWRT_LUCIRPC_HOSTNAME
+            valueFrom:
+              configMapKeyRef:
+                name: external-dns-webhook-env-custom
+                key: PROVIDER_OPENWRT_LUCIRPC_HOSTNAME
+                optional: true # Allow pod to start even if configmap is missing or key is not present
+          - name: PROVIDER_OPENWRT_LUCIRPC_AUTH_USERNAME
+            valueFrom:
+              configMapKeyRef:
+                name: external-dns-webhook-env-custom
+                key: PROVIDER_OPENWRT_LUCIRPC_AUTH_USERNAME
+                optional: true
+          - name: PROVIDER_OPENWRT_LUCIRPC_AUTH_PASSWORD
+            valueFrom:
+              configMapKeyRef:
+                name: external-dns-webhook-env-custom
+                key: PROVIDER_OPENWRT_LUCIRPC_AUTH_PASSWORD
+                optional: true
           livenessProbe:
             failureThreshold: 2
             httpGet:
