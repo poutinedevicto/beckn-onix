@@ -189,23 +189,24 @@ spec:
           #            les env ont précédence sur envFrom 
           env:
           - name: PROVIDER_OPENWRT_LUCIRPC_HOSTNAME
+            # Attention valeur HOSTNAME doit être quoted si numeric IP
             valueFrom:
               configMapKeyRef:
                 name: external-dns-webhook-env-custom
                 key: PROVIDER_OPENWRT_LUCIRPC_HOSTNAME
-                #TEMP optional: true # Allow pod to start even if configmap is missing or key is not present
+                optional: true # Allow pod to start even if configmap is missing or key is not present
           - name: PROVIDER_OPENWRT_LUCIRPC_AUTH_USERNAME
             valueFrom:
               configMapKeyRef:
                 name: external-dns-webhook-env-custom
                 key: PROVIDER_OPENWRT_LUCIRPC_AUTH_USERNAME
-                # TEMP optional: true
+                optional: true
           - name: PROVIDER_OPENWRT_LUCIRPC_AUTH_PASSWORD
             valueFrom:
               configMapKeyRef:
                 name: external-dns-webhook-env-custom
                 key: PROVIDER_OPENWRT_LUCIRPC_AUTH_PASSWORD
-                # TEMP optional: true
+                optional: true
           livenessProbe:
             failureThreshold: 2
             httpGet:
