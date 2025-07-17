@@ -1,0 +1,240 @@
+# skaffold render -f skaffold-router3.yaml --images external-dns-openwrt-webhook --output rendered-manifests-do-not-commit.yaml --digest-source local
+# https://github.com/poutinedevicto/external-dns-openwrt-webhook
+# plus certaines modifs (namespace - private stuff)
+# 
+# external-dns with openwrt webhook running as a sidecar - deployment has 2 containers 
+apiVersion: v1
+automountServiceAccountToken: null
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/instance: external-dns
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: external-dns
+    app.kubernetes.io/version: 0.15.1
+    helm.sh/chart: external-dns-1.15.2
+  name: external-dns
+  namespace: locavora-infra
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/instance: external-dns
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: external-dns
+    app.kubernetes.io/version: 0.15.1
+    helm.sh/chart: external-dns-1.15.2
+  name: external-dns
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - nodes
+    verbs:
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+    verbs:
+      - get
+      - watch
+      - list
+  - apiGroups:
+      - ""
+    resources:
+      - services
+      - endpoints
+    verbs:
+      - get
+      - watch
+      - list
+  - apiGroups:
+      - extensions
+      - networking.k8s.io
+    resources:
+      - ingresses
+    verbs:
+      - get
+      - watch
+      - list
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/instance: external-dns
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: external-dns
+    app.kubernetes.io/version: 0.15.1
+    helm.sh/chart: external-dns-1.15.2
+  name: external-dns-viewer
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: external-dns
+subjects:
+  - kind: ServiceAccount
+    name: external-dns
+    namespace: locavora-infra
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/instance: external-dns
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: external-dns
+    app.kubernetes.io/version: 0.15.1
+    helm.sh/chart: external-dns-1.15.2
+  name: external-dns
+  namespace: locavora-infra
+spec:
+  ports:
+    - name: http
+      port: 7979
+      protocol: TCP
+      targetPort: http
+    - name: http-webhook
+      port: 8080
+      protocol: TCP
+      targetPort: http-webhook
+  selector:
+    app.kubernetes.io/instance: external-dns
+    app.kubernetes.io/name: external-dns
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/instance: external-dns
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: external-dns
+    app.kubernetes.io/version: 0.15.1
+    helm.sh/chart: external-dns-1.15.2
+  name: external-dns
+  namespace: locavora-infra
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: external-dns
+      app.kubernetes.io/name: external-dns
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/instance: external-dns
+        app.kubernetes.io/name: external-dns
+    spec:
+      containers:
+        - args:
+            - --log-level=info
+            - --log-format=text
+            - --interval=1m
+            - --source=service
+            - --source=ingress
+            - --policy=upsert-only
+            - --registry=txt
+            - --provider=webhook
+          image: registry.k8s.io/external-dns/external-dns:v0.15.1
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 2
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+          name: external-dns
+          ports:
+            - containerPort: 7979
+              name: http
+              protocol: TCP
+          readinessProbe:
+            failureThreshold: 6
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsGroup: 65532
+            runAsNonRoot: true
+            runAsUser: 65532
+        - env:
+            - name: SHUTDOWN_TIMEOUT_SECONDS
+              value: "5"
+            - name: LOG_LEVEL
+              value: info
+            - name: LOG_STACK_TRACE
+              value: "false"
+            - name: LOG_ENCODING
+              value: json
+            - name: ROUTER_HEALTHCHECK_PATH
+              value: /ping
+            - name: ROUTER_HEALTHCHECK_PORT
+              value: "8888"
+            - name: ROUTER_GIN_RELEASE_MODE
+              value: "true"
+            - name: PROVIDER_OPENWRT_LUCIRPC_HOSTNAME
+              value: "TODO_PROVIDER_OPENWRT_LUCIRPC_HOSTNAME"
+            - name: PROVIDER_OPENWRT_LUCIRPC_PORT
+              value: "443"
+            - name: PROVIDER_OPENWRT_LUCIRPC_SSL
+              value: "true"
+            - name: PROVIDER_OPENWRT_LUCIRPC_RPC_ID
+              value: "1"
+            - name: PROVIDER_OPENWRT_LUCIRPC_TIMEOUT
+              value: "15"
+            - name: PROVIDER_OPENWRT_LUCIRPC_INSECURE_SKIP_VERIFY
+              value: "true"
+            - name: PROVIDER_OPENWRT_LUCIRPC_AUTH_USERNAME
+              value: "TODO_PROVIDER_OPENWRT_LUCIRPC_AUTH_USERNAME"
+            - name: PROVIDER_OPENWRT_LUCIRPC_AUTH_PASSWORD
+              value: "TODO_PROVIDER_OPENWRT_LUCIRPC_AUTH_PASSWORD"
+          image: renanqts/external-dns-openwrt-webhook:v0.1.0
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 2
+            httpGet:
+              path: /ping
+              port: 8888
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+          name: webhook
+          ports:
+            - containerPort: 8080
+              name: http-webhook
+              protocol: TCP
+          readinessProbe:
+            failureThreshold: 6
+            httpGet:
+              path: /ping
+              port: 8888
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+      securityContext:
+        fsGroup: 65534
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: external-dns
