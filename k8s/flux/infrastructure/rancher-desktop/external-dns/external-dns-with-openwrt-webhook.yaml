@@ -193,19 +193,19 @@ spec:
               configMapKeyRef:
                 name: external-dns-webhook-env-custom
                 key: PROVIDER_OPENWRT_LUCIRPC_HOSTNAME
-                optional: true # Allow pod to start even if configmap is missing or key is not present
+                #TEMP optional: true # Allow pod to start even if configmap is missing or key is not present
           - name: PROVIDER_OPENWRT_LUCIRPC_AUTH_USERNAME
             valueFrom:
               configMapKeyRef:
                 name: external-dns-webhook-env-custom
                 key: PROVIDER_OPENWRT_LUCIRPC_AUTH_USERNAME
-                optional: true
+                # TEMP optional: true
           - name: PROVIDER_OPENWRT_LUCIRPC_AUTH_PASSWORD
             valueFrom:
               configMapKeyRef:
                 name: external-dns-webhook-env-custom
                 key: PROVIDER_OPENWRT_LUCIRPC_AUTH_PASSWORD
-                optional: true
+                # TEMP optional: true
           livenessProbe:
             failureThreshold: 2
             httpGet:
