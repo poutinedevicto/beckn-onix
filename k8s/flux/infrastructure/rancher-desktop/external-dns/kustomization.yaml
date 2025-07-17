@@ -3,3 +3,9 @@ kind: Kustomization
 resources:
   - ../../base/external-dns
   - external-dns-with-openwrt-webhook.yaml
+
+configMapGenerator:
+- name: default-webhook-env
+  namespace: locavora-infra
+  envs:
+  - default-webhook-env.properties
