@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: external-dns
+  namespace: locavora-infra
+  # Annotate this ServiceAccount with the GCP Service Account that has the necessary permissions for DNS management.
+  # This is required for ExternalDNS to interact with Google Cloud DNS.
+  # kubectl annotate serviceaccount external-dns -n locavora-infra "iam.gke.io/gcp-service-account"="external-dns-sa@TODO_GOOGLE_PROJECT_NAME.iam.gserviceaccount.com"
+  #
+  # Expected result:
+  #annotations:
+  #  iam.gke.io/gcp-service-account: external-dns-sa@TODO_GOOGLE_PROJECT_NAME.iam.gserviceaccount.com
