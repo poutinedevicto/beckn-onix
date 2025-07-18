@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: external-dns
+  namespace: locavora-infra 
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: external-dns
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: external-dns
+    spec:
+      serviceAccountName: external-dns # Reference the KSA you created
+      containers:
+        - name: external-dns
+          image: k8s.gcr.io/external-dns/external-dns:v0.13.5 # Use a recent stable version
+          envFrom:
+          - configMapRef:
+              name: external-dns-gcloud-env
+          env:
+          - name: ARG_DOMAIN_FILTER
+            valueFrom:
+              configMapKeyRef:
+                # ConfigMap to be injected manually outside of GIT
+                name: external-dns-gcloud-env-custom
+                key: ARG_DOMAIN_FILTER
+                optional: true 
+          - name: ARG_DOMAIN_GOOGLE_PROJECT_NAME
+            valueFrom:
+              configMapKeyRef:
+                name: external-dns-gcloud-env-custom
+                key: ARG_DOMAIN_GOOGLE_PROJECT_NAME
+                optional: true 
+          args:
+            - --source=service
+            - --source=ingress
+            - --domain-filter=$(ARG_DOMAIN_FILTER) # Set this to your domain, e.g., locavora.org
+            - --provider=google
+            - --google-project=$(ARG_GOOGLE_PROJECT_NAME) # Set this to your GCP project name
+            - --log-level=info
+          env:
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/run/secrets/kubernetes.io/serviceaccount/token # Workload Identity uses this token

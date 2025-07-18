@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base/external-dns
+  - external-dns-gcloud.yaml
+
+
+configMapGenerator:  
+- name: external-dns-gcloud-env
+  namespace: locavora-infra
+  # Values meant to be overridden using a ConfigMap called external-dns-gcloud-env-custom in the locavora-infra namespace.
+  literals:
+    - ARG_DOMAIN_FILTER=TODO_DOMAIN_FILTER # ex subdomain.locavora.org
+    - ARG_DOMAIN_GOOGLE_PROJECT_NAME=TODO_GOOGLE_PROJECT_NAME

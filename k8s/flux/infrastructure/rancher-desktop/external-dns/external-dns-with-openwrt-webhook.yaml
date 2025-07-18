@@ -184,8 +184,7 @@ spec:
           - configMapRef:
               name: external-dns-webhook-env
           # LOCAVORA - permet de donner une valeur locale à partir de la configMap
-          #            external-dns-webhook-env-custom à définir à 
-          #            ** l'extérieur ** de GIT
+          #            external-dns-webhook-env-custom à définir à * l'extérieur * de GIT
           #            les env ont précédence sur envFrom 
           env:
           - name: PROVIDER_OPENWRT_LUCIRPC_HOSTNAME
