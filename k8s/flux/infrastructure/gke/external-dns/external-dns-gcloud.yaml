@@ -38,7 +38,7 @@ spec:
           args:
             - --source=service
             - --source=ingress
-            - --domain-filter=$(ARG_DOMAIN_FILTER) # Set this to your domain, e.g., locavora.org
+            - --domain-filter="$(ARG_DOMAIN_FILTER)" # Set this to your domain, e.g., locavora.org
             - --provider=google
-            - --google-project=$(ARG_GOOGLE_PROJECT_NAME) # Set this to your GCP project name
+            - --google-project="$(ARG_GOOGLE_PROJECT_NAME)" # Set this to your GCP project name
             - --log-level=info
