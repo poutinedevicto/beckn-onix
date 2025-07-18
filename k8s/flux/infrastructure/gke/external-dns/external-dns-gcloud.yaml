@@ -29,11 +29,11 @@ spec:
                 name: external-dns-gcloud-env-custom
                 key: ARG_DOMAIN_FILTER
                 optional: true 
-          - name: ARG_DOMAIN_GOOGLE_PROJECT_NAME
+          - name: ARG_GOOGLE_PROJECT_NAME
             valueFrom:
               configMapKeyRef:
                 name: external-dns-gcloud-env-custom
-                key: ARG_DOMAIN_GOOGLE_PROJECT_NAME
+                key: ARG_GOOGLE_PROJECT_NAME
                 optional: true 
           args:
             - --source=service
