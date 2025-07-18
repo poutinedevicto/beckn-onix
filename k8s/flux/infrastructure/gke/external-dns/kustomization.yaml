@@ -3,6 +3,7 @@ kind: Kustomization
 resources:
   - ../../base/external-dns
   - external-dns-gcloud.yaml
+  - ksa-external-dns-needing-gsa-annotation.yaml
 
 
 configMapGenerator:  
