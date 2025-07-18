@@ -20,6 +20,8 @@ spec:
           - configMapRef:
               name: external-dns-gcloud-env
           env:
+          - name: GOOGLE_APPLICATION_CREDENTIALS
+            value: /var/run/secrets/kubernetes.io/serviceaccount/token # Workload Identity uses this token
           - name: ARG_DOMAIN_FILTER
             valueFrom:
               configMapKeyRef:
@@ -40,6 +42,3 @@ spec:
             - --provider=google
             - --google-project=$(ARG_GOOGLE_PROJECT_NAME) # Set this to your GCP project name
             - --log-level=info
-          env:
-            - name: GOOGLE_APPLICATION_CREDENTIALS
-              value: /var/run/secrets/kubernetes.io/serviceaccount/token # Workload Identity uses this token
