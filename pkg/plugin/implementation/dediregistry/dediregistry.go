@@ -152,7 +152,6 @@ func (c *DeDiRegistryClient) Lookup(ctx context.Context, req *model.Subscription
 		return nil, fmt.Errorf("invalid or missing publicKey in response")
 	}
 
-	// Optional fields - use blank identifier for non-critical fields
 	state, _ := data["state"].(string)
 	createdAt, _ := data["created_at"].(string)
 	updatedAt, _ := data["updated_at"].(string)
