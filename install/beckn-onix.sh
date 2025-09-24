@@ -149,19 +149,17 @@ install_bap_protocol_server() {
     docker run --rm -v $SCRIPT_DIR/../protocol-server-data:/source -v bap_network_config_volume:/target busybox cp /source/bap-network.yaml-sample /target
     docker rmi busybox
 
-    start_container $bap_docker_compose_file "bap-client"
-    sleep 20
-    start_container $bap_docker_compose_file "bap-network"
-    sleep 10
 
-    if [[ -z "$layer2_url" ]]; then
-        echo -e "${BoldGreen}Please download the Layer 2 configuration files by running the download_layer_2_config_bap.sh script located in the ../layer2 folder."
-        echo -e "For further information, refer to this URL:${BLUE}https://github.com/beckn/beckn-onix/blob/main/docs/user_guide.md#downloading-layer-2-configuration-for-a-domain.${NC}"
-    else
-        echo -e "${GREEN}Installing layer configuration for $(basename "$layer2_url")${NC}"
-        install_layer2_config bap-client
-        install_layer2_config bap-network
-    fi
+
+    # Layer 2 configuration commented out - ONIX adapter handles schemas differently
+    # if [[ -z "$layer2_url" ]]; then
+    #     echo -e "${BoldGreen}Please download the Layer 2 configuration files by running the download_layer_2_config_bap.sh script located in the ../layer2 folder."
+    #     echo -e "For further information, refer to this URL:${BLUE}https://github.com/beckn/beckn-onix/blob/main/docs/user_guide.md#downloading-layer-2-configuration-for-a-domain.${NC}"
+    # else
+    #     echo -e "${GREEN}Installing layer configuration for $(basename "$layer2_url")${NC}"
+    #     install_layer2_config bap-client
+    #     install_layer2_config bap-network
+    # fi
     echo "Protocol server BAP installation successful"
     sleep 40
 }
@@ -191,17 +189,15 @@ install_bpp_protocol_server() {
     docker run --rm -v $SCRIPT_DIR/../protocol-server-data:/source -v bpp_network_config_volume:/target busybox cp /source/bpp-network.yaml-sample /target
     docker rmi busybox
 
-    start_container $bpp_docker_compose_file "bpp-client"
-    start_container $bpp_docker_compose_file "bpp-network"
-    sleep 10
-    if [[ -z "$layer2_url" ]]; then
-        echo -e "${BoldGreen}Please download the Layer 2 configuration files by running the download_layer_2_config_bpp.sh script located in the ../layer2 folder."
-        echo -e "For further information, refer to this URL:${BLUE} https://github.com/beckn/beckn-onix/blob/main/docs/user_guide.md#downloading-layer-2-configuration-for-a-domain.${NC}"
-    else
-        echo -e "${BoldGreen}Installing layer configuration for $(basename "$layer2_url")"
-        install_layer2_config bpp-client
-        install_layer2_config bpp-network
-    fi
+    # Layer 2 configuration commented out - ONIX adapter handles schemas differently
+    # if [[ -z "$layer2_url" ]]; then
+    #     echo -e "${BoldGreen}Please download the Layer 2 configuration files by running the download_layer_2_config_bpp.sh script located in the ../layer2 folder."
+    #     echo -e "For further information, refer to this URL:${BLUE} https://github.com/beckn/beckn-onix/blob/main/docs/user_guide.md#downloading-layer-2-configuration-for-a-domain.${NC}"
+    # else
+    #     echo -e "${BoldGreen}Installing layer configuration for $(basename "$layer2_url")"
+    #     install_layer2_config bpp-client
+    #     install_layer2_config bpp-network
+    # fi
     echo "Protocol server BPP installation successful"
 }
 
@@ -290,9 +286,6 @@ install_bpp_protocol_server_with_sandbox() {
     docker run --rm -v $SCRIPT_DIR/../protocol-server-data:/source -v bpp_network_config_volume:/target busybox cp /source/bpp-network.yaml-sample /target
     docker rmi busybox
 
-    start_container $bpp_docker_compose_file "bpp-client"
-    start_container $bpp_docker_compose_file "bpp-network"
-    sleep 10
     echo "Protocol server BPP installation successful"
 }
 
@@ -465,7 +458,7 @@ completeSetup() {
         bap_subscriber_key_id="$bap_subscriber_id-key"
         public_address=$bap_subscriber_url
 
-        layer2_config
+        # layer2_config  # Commented out - ONIX adapter handles schemas differently
         install_package
         install_bap_protocol_server $registry_url $bap_subscriber_id $bap_subscriber_key_id $bap_subscriber_url
         ;;
@@ -512,7 +505,7 @@ completeSetup() {
         bpp_subscriber_key_id="$bpp_subscriber_id-key"
         public_address=$bpp_subscriber_url
 
-        layer2_config
+        # layer2_config  # Commented out - ONIX adapter handles schemas differently
         install_package
         install_bpp_protocol_server $registry_url $bpp_subscriber_id $bpp_subscriber_key_id $bpp_subscriber_url $webhook_url
         ;;
@@ -578,7 +571,7 @@ completeSetup() {
 
         install_gateway $registry_url $gateway_url
 
-        layer2_config
+        # layer2_config  # Commented out - ONIX adapter handles schemas differently
         #Append /subscribers for registry_url
         new_registry_url="${registry_url%/}/subscribers"
         bap_subscriber_key_id="$bap_subscriber_id-key"
