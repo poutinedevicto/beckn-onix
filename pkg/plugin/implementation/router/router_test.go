@@ -552,3 +552,133 @@ func TestRouteFailure(t *testing.T) {
 		})
 	}
 }
+
+// TestExcludeAction tests the excludeAction feature for URL routing
+func TestExcludeAction(t *testing.T) {
+	tests := []struct {
+		name           string
+		configFile     string
+		expectedRoutes map[string]map[string]map[string]*model.Route
+	}{
+		{
+			name:       "excludeAction true - action not appended to URL",
+			configFile: "exclude_action_true.yaml",
+			expectedRoutes: map[string]map[string]map[string]*model.Route{
+				"ONDC:TRV10": {
+					"2.0.0": {
+						"search": {TargetType: targetTypeURL, URL: parseURL(t, "https://services-backend.com/v2/ondc")},
+						"init":   {TargetType: targetTypeURL, URL: parseURL(t, "https://services-backend.com/v2/ondc")},
+					},
+				},
+			},
+		},
+		{
+			name:       "excludeAction false - action appended to URL",
+			configFile: "exclude_action_false.yaml",
+			expectedRoutes: map[string]map[string]map[string]*model.Route{
+				"ONDC:TRV10": {
+					"2.0.0": {
+						"search": {TargetType: targetTypeURL, URL: parseURL(t, "https://services-backend.com/v2/ondc/search")},
+						"init":   {TargetType: targetTypeURL, URL: parseURL(t, "https://services-backend.com/v2/ondc/init")},
+					},
+				},
+			},
+		},
+		{
+			name:       "excludeAction not specified - defaults to false (action appended)",
+			configFile: "exclude_action_default.yaml",
+			expectedRoutes: map[string]map[string]map[string]*model.Route{
+				"ONDC:TRV10": {
+					"2.0.0": {
+						"search": {TargetType: targetTypeURL, URL: parseURL(t, "https://services-backend.com/v2/ondc/search")},
+						"init":   {TargetType: targetTypeURL, URL: parseURL(t, "https://services-backend.com/v2/ondc/init")},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			router := &Router{
+				rules: make(map[string]map[string]map[string]*model.Route),
+			}
+			rulesFilePath := setupTestConfig(t, tt.configFile)
+			defer os.RemoveAll(filepath.Dir(rulesFilePath))
+
+			err := router.loadRules(rulesFilePath)
+			if err != nil {
+				t.Fatalf("loadRules() err = %v, want nil", err)
+			}
+
+			if !reflect.DeepEqual(router.rules, tt.expectedRoutes) {
+				t.Errorf("Loaded rules mismatch for %s.\nGot:\n%#v\nWant:\n%#v", tt.name, router.rules, tt.expectedRoutes)
+			}
+		})
+	}
+}
+
+// TestExcludeActionWithNonURLTargetTypes tests that excludeAction is ignored for non-URL target types
+func TestExcludeActionWithNonURLTargetTypes(t *testing.T) {
+	tests := []struct {
+		name           string
+		configFile     string
+		expectedRoutes map[string]map[string]map[string]*model.Route
+	}{
+		{
+			name:       "BPP target type - excludeAction should be ignored",
+			configFile: "exclude_action_bpp.yaml",
+			expectedRoutes: map[string]map[string]map[string]*model.Route{
+				"ONDC:TRV10": {
+					"2.0.0": {
+						"search": {TargetType: targetTypeBPP, URL: parseURL(t, "https://mock_bpp.com/v2/ondc/search")},
+						"init":   {TargetType: targetTypeBPP, URL: parseURL(t, "https://mock_bpp.com/v2/ondc/init")},
+					},
+				},
+			},
+		},
+		{
+			name:       "BAP target type - excludeAction should be ignored",
+			configFile: "exclude_action_bap.yaml",
+			expectedRoutes: map[string]map[string]map[string]*model.Route{
+				"ONDC:TRV10": {
+					"2.0.0": {
+						"search": {TargetType: targetTypeBAP, URL: parseURL(t, "https://mock_bap.com/v2/ondc/search")},
+						"init":   {TargetType: targetTypeBAP, URL: parseURL(t, "https://mock_bap.com/v2/ondc/init")},
+					},
+				},
+			},
+		},
+		{
+			name:       "Publisher target type - excludeAction should be ignored",
+			configFile: "exclude_action_publisher.yaml",
+			expectedRoutes: map[string]map[string]map[string]*model.Route{
+				"ONDC:TRV10": {
+					"2.0.0": {
+						"search": {TargetType: targetTypePublisher, PublisherID: "test_topic", URL: nil},
+						"init":   {TargetType: targetTypePublisher, PublisherID: "test_topic", URL: nil},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			router := &Router{
+				rules: make(map[string]map[string]map[string]*model.Route),
+			}
+			rulesFilePath := setupTestConfig(t, tt.configFile)
+			defer os.RemoveAll(filepath.Dir(rulesFilePath))
+
+			err := router.loadRules(rulesFilePath)
+			if err != nil {
+				t.Fatalf("loadRules() err = %v, want nil", err)
+			}
+
+			if !reflect.DeepEqual(router.rules, tt.expectedRoutes) {
+				t.Errorf("Loaded rules mismatch for %s.\nGot:\n%#v\nWant:\n%#v", tt.name, router.rules, tt.expectedRoutes)
+			}
+		})
+	}
+}
