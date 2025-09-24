@@ -1,0 +1,10 @@
+routingRules:
+  - domain: ONDC:TRV10
+    version: 2.0.0
+    targetType: bpp
+    target:
+      url: https://mock_bpp.com/v2/ondc
+      excludeAction: true
+    endpoints:
+      - search
+      - init
