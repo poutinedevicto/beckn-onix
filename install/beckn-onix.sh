@@ -52,18 +52,10 @@ update_registry_details() {
     docker run --rm -v $SCRIPT_DIR/../registry_data/config:/source -v registry_data_volume:/target busybox cp /source/{envvars,logger.properties,swf.properties} /target/
     docker rmi busybox
 }
-# Function to start the MongoDB, Redis, and RabbitMQ Services
+# Function to start Redis service only
 start_support_services() {
     #ignore orphaned containers warning
     export COMPOSE_IGNORE_ORPHANS=1
-    echo "${GREEN}................Installing MongoDB................${NC}"
-    docker compose -f docker-compose-app.yml up -d mongo_db
-    echo "MongoDB installation successful"
-
-    echo "${GREEN}................Installing RabbitMQ................${NC}"
-    docker compose -f docker-compose-app.yml up -d queue_service
-    echo "RabbitMQ installation successful"
-
     echo "${GREEN}................Installing Redis................${NC}"
     docker compose -f docker-compose-app.yml up -d redis_db
     echo "Redis installation successful"
@@ -128,9 +120,8 @@ install_layer2_config() {
     rm -f $FILENAME >/dev/null 2>&1
 }
 
-# Function to install BAP Protocol Server
+# Function to install BAP Protocol Server - creates registry entries only
 install_bap_protocol_server() {
-    start_support_services
     if [[ $1 ]]; then
         registry_url=$1
         bap_subscriber_id=$2
@@ -140,33 +131,12 @@ install_bap_protocol_server() {
     else
         bash scripts/update_bap_config.sh
     fi
-    sleep 10
-    docker volume create bap_client_config_volume
-    docker volume create bap_network_config_volume
-    docker run --rm -v $SCRIPT_DIR/../protocol-server-data:/source -v bap_client_config_volume:/target busybox cp /source/bap-client.yml /target/default.yml
-    docker run --rm -v $SCRIPT_DIR/../protocol-server-data:/source -v bap_client_config_volume:/target busybox cp /source/bap-client.yaml-sample /target
-    docker run --rm -v $SCRIPT_DIR/../protocol-server-data:/source -v bap_network_config_volume:/target busybox cp /source/bap-network.yml /target/default.yml
-    docker run --rm -v $SCRIPT_DIR/../protocol-server-data:/source -v bap_network_config_volume:/target busybox cp /source/bap-network.yaml-sample /target
-    docker rmi busybox
-
-
-
-    # Layer 2 configuration commented out - ONIX adapter handles schemas differently
-    # if [[ -z "$layer2_url" ]]; then
-    #     echo -e "${BoldGreen}Please download the Layer 2 configuration files by running the download_layer_2_config_bap.sh script located in the ../layer2 folder."
-    #     echo -e "For further information, refer to this URL:${BLUE}https://github.com/beckn/beckn-onix/blob/main/docs/user_guide.md#downloading-layer-2-configuration-for-a-domain.${NC}"
-    # else
-    #     echo -e "${GREEN}Installing layer configuration for $(basename "$layer2_url")${NC}"
-    #     install_layer2_config bap-client
-    #     install_layer2_config bap-network
-    # fi
-    echo "Protocol server BAP installation successful"
-    sleep 40
+    
+    echo "Protocol server BAP registry entries created successfully"
 }
 
-# Function to install BPP Protocol Server without Sandbox
+# Function to install BPP Protocol Server - creates registry entries only
 install_bpp_protocol_server() {
-    start_support_services
     echo "${GREEN}................Installing Protocol Server for BPP................${NC}"
 
     if [[ $1 ]]; then
@@ -180,25 +150,7 @@ install_bpp_protocol_server() {
         bash scripts/update_bpp_config.sh
     fi
 
-    sleep 10
-    docker volume create bpp_client_config_volume
-    docker volume create bpp_network_config_volume
-    docker run --rm -v $SCRIPT_DIR/../protocol-server-data:/source -v bpp_client_config_volume:/target busybox cp /source/bpp-client.yml /target/default.yml
-    docker run --rm -v $SCRIPT_DIR/../protocol-server-data:/source -v bpp_client_config_volume:/target busybox cp /source/bpp-client.yaml-sample /target
-    docker run --rm -v $SCRIPT_DIR/../protocol-server-data:/source -v bpp_network_config_volume:/target busybox cp /source/bpp-network.yml /target/default.yml
-    docker run --rm -v $SCRIPT_DIR/../protocol-server-data:/source -v bpp_network_config_volume:/target busybox cp /source/bpp-network.yaml-sample /target
-    docker rmi busybox
-
-    # Layer 2 configuration commented out - ONIX adapter handles schemas differently
-    # if [[ -z "$layer2_url" ]]; then
-    #     echo -e "${BoldGreen}Please download the Layer 2 configuration files by running the download_layer_2_config_bpp.sh script located in the ../layer2 folder."
-    #     echo -e "For further information, refer to this URL:${BLUE} https://github.com/beckn/beckn-onix/blob/main/docs/user_guide.md#downloading-layer-2-configuration-for-a-domain.${NC}"
-    # else
-    #     echo -e "${BoldGreen}Installing layer configuration for $(basename "$layer2_url")"
-    #     install_layer2_config bpp-client
-    #     install_layer2_config bpp-network
-    # fi
-    echo "Protocol server BPP installation successful"
+    echo "Protocol server BPP registry entries created successfully"
 }
 
 mergingNetworks() {
@@ -256,11 +208,6 @@ mergingNetworks() {
 
 # Function to install BPP Protocol Server with Sandbox
 install_bpp_protocol_server_with_sandbox() {
-    start_support_services
-
-    docker volume create bpp_client_config_volume
-    docker volume create bpp_network_config_volume
-
     echo "${GREEN}................Installing Sandbox................${NC}"
     start_container $bpp_docker_compose_file_sandbox "sandbox-api"
     sleep 5
@@ -279,14 +226,7 @@ install_bpp_protocol_server_with_sandbox() {
         bash scripts/update_bpp_config.sh
     fi
 
-    sleep 10
-    docker run --rm -v $SCRIPT_DIR/../protocol-server-data:/source -v bpp_client_config_volume:/target busybox cp /source/bpp-client.yml /target/default.yml
-    docker run --rm -v $SCRIPT_DIR/../protocol-server-data:/source -v bpp_client_config_volume:/target busybox cp /source/bpp-client.yaml-sample /target
-    docker run --rm -v $SCRIPT_DIR/../protocol-server-data:/source -v bpp_network_config_volume:/target busybox cp /source/bpp-network.yml /target/default.yml
-    docker run --rm -v $SCRIPT_DIR/../protocol-server-data:/source -v bpp_network_config_volume:/target busybox cp /source/bpp-network.yaml-sample /target
-    docker rmi busybox
-
-    echo "Protocol server BPP installation successful"
+    echo "Protocol server BPP registry entries created successfully"
 }
 
 layer2_config() {
@@ -695,6 +635,7 @@ update_network() {
 }
 
 install_adapter() {
+    start_support_services
     start_container $adapter_docker_compose_file "onix-adapter"
     sleep 10
     echo "ONIX Adapter installation successful"
