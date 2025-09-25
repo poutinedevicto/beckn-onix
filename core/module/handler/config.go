@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/beckn-one/beckn-onix/pkg/model"
 	"github.com/beckn-one/beckn-onix/pkg/plugin"
@@ -46,12 +47,32 @@ type PluginCfg struct {
 	Steps           []plugin.Config
 }
 
+// HttpClientConfig defines the configuration for the HTTP transport layer.
+type HttpClientConfig struct {
+	// MaxIdleConns controls the maximum number of idle (keep-alive)
+	// connections across all hosts.
+	MaxIdleConns int `yaml:"maxIdleConns"`
+
+	// IdleConnTimeout is the maximum amount of time an idle
+	// (keep-alive) connection will remain idle before closing itself.
+	IdleConnTimeout time.Duration `yaml:"idleConnTimeout"`
+
+	// MaxIdleConnsPerHost, if non-zero, controls the maximum idle
+	// (keep-alive) connections to keep per-host.
+	MaxIdleConnsPerHost int `yaml:"maxIdleConnsPerHost"`
+
+	// ResponseHeaderTimeout, if non-zero, specifies the amount of time to wait
+	// for a server's response headers after fully writing the request.
+	ResponseHeaderTimeout time.Duration `yaml:"responseHeaderTimeout"`
+}
+
 // Config holds the configuration for request processing handlers.
 type Config struct {
-	Plugins      PluginCfg `yaml:"plugins"`
-	Steps        []string
-	Type         Type
-	RegistryURL  string `yaml:"registryUrl"`
-	Role         model.Role
-	SubscriberID string `yaml:"subscriberId"`
+	Plugins          PluginCfg `yaml:"plugins"`
+	Steps            []string
+	Type             Type
+	RegistryURL      string `yaml:"registryUrl"`
+	Role             model.Role
+	SubscriberID     string           `yaml:"subscriberId"`
+	HttpClientConfig HttpClientConfig `yaml:"httpClientConfig"`
 }
