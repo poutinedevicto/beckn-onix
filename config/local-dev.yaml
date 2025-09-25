@@ -22,6 +22,11 @@ modules:
     handler:
       type: std
       role: bap
+      httpClientConfig:
+        maxIdleConns: 1000
+        maxIdleConnsPerHost: 200
+        idleConnTimeout: 300s
+        responseHeaderTimeout: 5s
       plugins:
         registry:
           id: registry
@@ -65,6 +70,11 @@ modules:
     handler:
       type: std
       role: bap
+      httpClientConfig:
+        maxIdleConns: 1000
+        maxIdleConnsPerHost: 200
+        idleConnTimeout: 300s
+        responseHeaderTimeout: 5s
       plugins:
         registry:
           id: registry
@@ -104,6 +114,11 @@ modules:
     handler:
       type: std
       role: bpp
+      httpClientConfig:
+        maxIdleConns: 1000
+        maxIdleConnsPerHost: 200
+        idleConnTimeout: 300s
+        responseHeaderTimeout: 5s
       plugins:
         registry:
           id: registry
@@ -143,6 +158,11 @@ modules:
     handler:
       type: std
       role: bpp
+      httpClientConfig:
+        maxIdleConns: 1000
+        maxIdleConnsPerHost: 200
+        idleConnTimeout: 300s
+        responseHeaderTimeout: 5s
       plugins:
         registry:
           id: registry
