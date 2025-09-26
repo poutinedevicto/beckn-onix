@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   onix-adapter:
-    image: onix-adapter
+    image: fidedocker/onix-adapter
     container_name: onix-adapter
     platform: linux/amd64
     networks:
