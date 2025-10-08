@@ -64,6 +64,7 @@ modules:
               uuidKeys: transaction_id,message_id
               role: bap
       steps:
+        - validateSign
         - addRoute
         - validateSchema
   
@@ -155,6 +156,7 @@ modules:
           config:
             routingConfig: ./config/local-simple-routing-BPPReceiver.yaml
       steps:
+        - validateSign
         - addRoute
   
   - name: bppTxnCaller

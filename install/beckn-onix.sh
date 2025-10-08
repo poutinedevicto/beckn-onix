@@ -401,6 +401,12 @@ completeSetup() {
         # layer2_config  # Commented out - ONIX adapter handles schemas differently
         install_package
         install_bap_protocol_server $registry_url $bap_subscriber_id $bap_subscriber_key_id $bap_subscriber_url
+        
+        # Ask if user wants ONIX adapter
+        read -p "${GREEN}Do you want to install ONIX adapter (Y/N): ${NC}" onix_choice
+        if [[ "$onix_choice" == "Y" || "$onix_choice" == "y" ]]; then
+            install_bap_adapter
+        fi
         ;;
     "BPP")
         echo "${GREEN}................Installing Protocol Server for BPP................${NC}"
@@ -448,6 +454,12 @@ completeSetup() {
         # layer2_config  # Commented out - ONIX adapter handles schemas differently
         install_package
         install_bpp_protocol_server $registry_url $bpp_subscriber_id $bpp_subscriber_key_id $bpp_subscriber_url $webhook_url
+        
+        # Ask if user wants ONIX adapter
+        read -p "${GREEN}Do you want to install ONIX adapter  (Y/N): ${NC}" onix_choice
+        if [[ "$onix_choice" == "Y" || "$onix_choice" == "y" ]]; then
+            install_bpp_adapter
+        fi
         ;;
     "ALL")
         # Collect all inputs at once for all components
@@ -519,6 +531,12 @@ completeSetup() {
 
         bpp_subscriber_key_id="$bpp_subscriber_id-key"
         install_bpp_protocol_server $new_registry_url $bpp_subscriber_id $bpp_subscriber_key_id $bpp_subscriber_url $webhook_url
+        
+        # Ask if user wants ONIX adapter
+        read -p "${GREEN}Do you want to install ONIX adapter (Y/N): ${NC}" onix_choice
+        if [[ "$onix_choice" == "Y" || "$onix_choice" == "y" ]]; then
+            install_adapter "BOTH"
+        fi
         ;;
     *)
         echo "Unknown platform: $platform"
@@ -595,6 +613,227 @@ update_service() {
     echo "$service_name update successful"
 }
 
+# Function to validate required modules exist in config file
+validate_config_modules() {
+    local key_type=$1
+    local config_file=$2
+    
+    local has_bap_modules=$(grep -c "name: bapTxn" "$config_file")
+    local has_bpp_modules=$(grep -c "name: bppTxn" "$config_file")
+    
+    # Only validate that required modules exist, don't enforce strict matching
+    if [[ "$key_type" == "BAP" && $has_bap_modules -eq 0 ]]; then
+        echo "${RED}Error: BAP deployment selected but no BAP modules found in config file${NC}"
+        echo "${BLUE}Config file: $config_file${NC}"
+        echo "${YELLOW}Please update docker-compose-adapter2.yml to use a config file with BAP modules${NC}"
+        return 1
+    elif [[ "$key_type" == "BPP" && $has_bpp_modules -eq 0 ]]; then
+        echo "${RED}Error: BPP deployment selected but no BPP modules found in config file${NC}"
+        echo "${BLUE}Config file: $config_file${NC}"
+        echo "${YELLOW}Please update docker-compose-adapter2.yml to use a config file with BPP modules${NC}"
+        return 1
+    elif [[ "$key_type" == "BOTH" && ($has_bap_modules -eq 0 || $has_bpp_modules -eq 0) ]]; then
+        echo "${RED}Error: Combined deployment selected but missing modules in config file${NC}"
+        echo "${BLUE}Config file: $config_file${NC}"
+        echo "${BLUE}BAP modules found: $has_bap_modules, BPP modules found: $has_bpp_modules${NC}"
+        echo "${YELLOW}Please update docker-compose-adapter2.yml to use a config file with both BAP and BPP modules${NC}"
+        return 1
+    fi
+    
+    # Allow BAP deployment with combined config (BAP + BPP modules)
+    # Allow BPP deployment with combined config (BAP + BPP modules)
+    echo "${GREEN}✓ Config validation passed - $key_type deployment with available modules${NC}"
+    return 0
+}
+
+# Function to configure ONIX adapter with registry keys
+# Usage: configure_onix_registry_keys [BAP|BPP|BOTH] [config_file]
+configure_onix_registry_keys() {
+    local key_type=${1:-"BOTH"}
+    local config_file=$2
+    
+    echo "${GREEN}Setting up ONIX keys ($key_type) from existing protocol server configs...${NC}"
+    
+    # Determine config file - only auto-detect if not provided
+    if [ -z "$config_file" ]; then
+        local docker_config=$(grep -o '/app/config/[^"]*' docker-compose-adapter2.yml | head -1)
+        if [ -z "$docker_config" ]; then
+            echo "${RED}Error: Could not find config file in docker-compose-adapter2.yml${NC}"
+            return 1
+        fi
+        config_file="${docker_config/\/app\/config\//../config/}"
+        echo "${BLUE}detected config file from docker-compose: $config_file${NC}"
+    else
+        echo "${BLUE}Using specified config file: $config_file${NC}"
+    fi
+    
+    echo "${BLUE}Updating config file: $config_file${NC}"
+    
+    local bap_config="protocol-server-data/bap-client.yml"
+    local bpp_config="protocol-server-data/bpp-client.yml"
+    
+    # Extract keys based on type
+    local bap_private_key bap_public_key bpp_private_key bpp_public_key
+    
+    if [[ "$key_type" == "BAP" || "$key_type" == "BOTH" ]]; then
+        if [ -f "$bap_config" ]; then
+            bap_private_key_full=$(awk '/privateKey:/ {print $2}' "$bap_config" | tr -d '"')
+            bap_public_key=$(awk '/publicKey:/ {print $2}' "$bap_config" | tr -d '"')
+            bap_private_key=$(echo "$bap_private_key_full" | base64 -d | head -c 32 | base64 -w 0)
+            echo "${GREEN}✓ Extracted BAP keys from $bap_config${NC}"
+        else
+            echo "${RED}Error: BAP config file not found at $bap_config${NC}"
+            return 1
+        fi
+    fi
+    
+    if [[ "$key_type" == "BPP" || "$key_type" == "BOTH" ]]; then
+        if [ -f "$bpp_config" ]; then
+            bpp_private_key_full=$(awk '/privateKey:/ {print $2}' "$bpp_config" | tr -d '"')
+            bpp_public_key=$(awk '/publicKey:/ {print $2}' "$bpp_config" | tr -d '"')
+            bpp_private_key=$(echo "$bpp_private_key_full" | base64 -d | head -c 32 | base64 -w 0)
+            echo "${GREEN}✓ Extracted BPP keys from $bpp_config${NC}"
+        else
+            echo "${YELLOW}⚠ BPP config file not found at $bpp_config - BPP modules will be skipped${NC}"
+            # Don't return error, just skip BPP key extraction
+        fi
+    fi
+    
+    if [ ! -f "$config_file" ]; then
+        echo "${RED}Error: ONIX config file not found at $config_file${NC}"
+        return 1
+    fi
+    
+    # Validate required modules exist
+    validate_config_modules "$key_type" "$config_file"
+    if [ $? -ne 0 ]; then
+        return 1
+    fi
+    
+    # Detect indentation pattern from the file
+    local steps_indent=$(grep -m1 "steps:" "$config_file" | sed 's/steps:.*//' | wc -c)
+    steps_indent=$((steps_indent - 1))  # Remove newline
+    local plugin_indent=$((steps_indent + 2))
+    local config_indent=$((steps_indent + 4))
+    
+    # Process the config file with dynamic indentation
+    awk -v bap_pub="$bap_public_key" -v bap_priv="$bap_private_key" \
+        -v bpp_pub="$bpp_public_key" -v bpp_priv="$bpp_private_key" \
+        -v key_type="$key_type" \
+        -v steps_spaces="$steps_indent" -v plugin_spaces="$plugin_indent" -v config_spaces="$config_indent" '
+    BEGIN { 
+        module_type = ""
+        in_keymanager = 0
+        has_keymanager = 0
+        # Create indent strings
+        steps_indent = sprintf("%*s", steps_spaces, "")
+        plugin_indent = sprintf("%*s", plugin_spaces, "")
+        config_indent = sprintf("%*s", config_spaces, "")
+        steps_pattern = "^" steps_indent "steps:"
+    }
+    
+    # Track module type and reset keymanager flag
+    /- name: bapTxn/ { 
+        if ((key_type == "BAP" || key_type == "BOTH") && bap_priv != "") module_type = "bap"
+        else module_type = ""
+        has_keymanager = 0; print; next 
+    }
+    /- name: bppTxn/ { 
+        if ((key_type == "BPP" || key_type == "BOTH") && bpp_priv != "") module_type = "bpp"
+        else module_type = ""
+        has_keymanager = 0; print; next 
+    }
+    /^  - name:/ && !/bapTxn/ && !/bppTxn/ { module_type = ""; has_keymanager = 0; print; next }
+    
+    # Handle keyManager section
+    /keyManager:/ {
+        in_keymanager = 1
+        has_keymanager = 1
+        print
+        next
+    }
+    
+    # Force simplekeymanager id
+    in_keymanager && /id:/ {
+        print config_indent "id: simplekeymanager"
+        next
+    }
+    
+    # Replace config section entirely
+    in_keymanager && /config:/ {
+        print config_indent "config:"
+        # Skip existing config lines until next plugin or steps
+        while (getline) {
+            if (match($0, "^" plugin_indent "[a-zA-Z]") || match($0, steps_pattern)) {
+                # Add complete config based on module
+                if (module_type == "bap") {
+                    print config_indent "  networkParticipant: bap-network"
+                    print config_indent "  keyId: bap-network-key"
+                    print config_indent "  signingPrivateKey: \"" bap_priv "\""
+                    print config_indent "  signingPublicKey: \"" bap_pub "\""
+                    print config_indent "  encrPrivateKey: \"" bap_priv "\""
+                    print config_indent "  encrPublicKey: \"" bap_pub "\""
+                } else if (module_type == "bpp") {
+                    print config_indent "  networkParticipant: bpp-network"
+                    print config_indent "  keyId: bpp-network-key"
+                    print config_indent "  signingPrivateKey: \"" bpp_priv "\""
+                    print config_indent "  signingPublicKey: \"" bpp_pub "\""
+                    print config_indent "  encrPrivateKey: \"" bpp_priv "\""
+                    print config_indent "  encrPublicKey: \"" bpp_pub "\""
+                }
+                in_keymanager = 0
+                print
+                next
+            }
+        }
+        next
+    }
+    
+    # Exit keyManager on unindented line
+    in_keymanager && match($0, "^" plugin_indent "[a-zA-Z]") && !match($0, "^" config_indent) {
+        in_keymanager = 0
+    }
+    
+    # Add keyManager if missing before steps
+    module_type && match($0, steps_pattern) && !has_keymanager {
+        print plugin_indent "keyManager:"
+        print config_indent "id: simplekeymanager"
+        print config_indent "config:"
+        if (module_type == "bap") {
+            print config_indent "  networkParticipant: bap-network"
+            print config_indent "  keyId: bap-network-key"
+            print config_indent "  signingPrivateKey: \"" bap_priv "\""
+            print config_indent "  signingPublicKey: \"" bap_pub "\""
+            print config_indent "  encrPrivateKey: \"" bap_priv "\""
+            print config_indent "  encrPublicKey: \"" bap_pub "\""
+        } else if (module_type == "bpp") {
+            print config_indent "  networkParticipant: bpp-network"
+            print config_indent "  keyId: bpp-network-key"
+            print config_indent "  signingPrivateKey: \"" bpp_priv "\""
+            print config_indent "  signingPublicKey: \"" bpp_pub "\""
+            print config_indent "  encrPrivateKey: \"" bpp_priv "\""
+            print config_indent "  encrPublicKey: \"" bpp_pub "\""
+        }
+    }
+    
+    # Print all other lines
+    { print }
+    ' "$config_file" > "${config_file}.tmp"
+    
+    if [ $? -eq 0 ] && [ -f "${config_file}.tmp" ]; then
+        mv "${config_file}.tmp" "$config_file"
+        echo "${GREEN}✓ ONIX keys configured with existing registry keys${NC}"
+    else
+        echo "${RED}Error: AWK script failed to process config file${NC}"
+        rm -f "${config_file}.tmp"
+        return 1
+    fi
+    [[ "$key_type" == "BAP" || "$key_type" == "BOTH" ]] && echo "${GREEN}✓ BAP modules using BAP keys${NC}"
+    [[ "$key_type" == "BPP" || "$key_type" == "BOTH" ]] && echo "${GREEN}✓ BPP modules using BPP keys${NC}"
+    
+    return 0
+}
+
 # Function to handle the update/upgrade process
 update_network() {
     echo -e "\nWhich component would you like to update?\n1. Registry\n2. Gateway\n3. BAP Protocol Server\n4. BPP Protocol Server\n5. All components"
@@ -634,11 +873,52 @@ update_network() {
     esac
 }
 
+# Function to install ONIX adapter with specified key type
 install_adapter() {
+    local key_type=${1:-"BOTH"}
+    local config_file=$2
+    
+    echo "${GREEN}................Building plugins for ONIX Adapter................${NC}"
+    
+    # Build plugins the same way as setup.sh
+    cd ..
+    if [ -f "./install/build-plugins.sh" ]; then
+        chmod +x ./install/build-plugins.sh
+        ./install/build-plugins.sh
+        if [ $? -eq 0 ]; then
+            echo "${GREEN}✓ Plugins built successfully${NC}"
+        else
+            echo "${RED}Error: Plugin build failed${NC}"
+            exit 1
+        fi
+    else
+        echo "${RED}Error: install/build-plugins.sh not found${NC}"
+        exit 1
+    fi
+    cd install
+    
+    echo "${GREEN}................Setting up keys for ONIX Adapter ($key_type)................${NC}"
+    configure_onix_registry_keys "$key_type" "$config_file"
+    if [ $? -ne 0 ]; then
+        echo "${RED}ONIX Adapter installation failed due to configuration errors${NC}"
+        exit 1
+    fi
+    
+    echo "${GREEN}................Starting Redis and ONIX Adapter................${NC}"
     start_support_services
     start_container $adapter_docker_compose_file "onix-adapter"
     sleep 10
     echo "ONIX Adapter installation successful"
+}
+
+# Helper function for BAP-only ONIX setup
+install_bap_adapter() {
+    install_adapter "BAP"
+}
+
+# Helper function for BPP-only ONIX setup  
+install_bpp_adapter() {
+    install_adapter "BPP"
 }
 # MAIN SCRIPT STARTS HERE
 
@@ -662,12 +942,13 @@ if [[ $? -ne 0 ]]; then
 fi
 
 if [[ $choice -eq 3 ]]; then
-    echo "Installing all components on the local machine"    
+    echo "Installing all components on the local machine"
+    install_package
     install_registry
     install_gateway
     install_bap_protocol_server
     install_bpp_protocol_server_with_sandbox
-    install_adapter
+    install_adapter "BOTH"
 elif [[ $choice -eq 4 ]]; then
     echo "Determining the platforms available based on the initial choice"
     mergingNetworks
