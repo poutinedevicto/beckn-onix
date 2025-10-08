@@ -25,7 +25,6 @@ func (d dediRegistryProvider) New(ctx context.Context, config map[string]string)
 		ApiKey:       config["apiKey"],
 		NamespaceID:  config["namespaceID"],
 		RegistryName: config["registryName"],
-		RecordName:   config["recordName"],
 	}
 
 	// Parse timeout if provided

@@ -19,7 +19,6 @@ type Config struct {
 	ApiKey       string `yaml:"apiKey" json:"apiKey"`
 	NamespaceID  string `yaml:"namespaceID" json:"namespaceID"`
 	RegistryName string `yaml:"registryName" json:"registryName"`
-	RecordName   string `yaml:"recordName" json:"recordName"`
 	Timeout      int    `yaml:"timeout" json:"timeout"`
 }
 
@@ -46,9 +45,7 @@ func validate(cfg *Config) error {
 	if cfg.RegistryName == "" {
 		return fmt.Errorf("registryName cannot be empty")
 	}
-	if cfg.RecordName == "" {
-		return fmt.Errorf("recordName cannot be empty")
-	}
+
 	return nil
 }
 
@@ -87,8 +84,15 @@ func New(ctx context.Context, cfg *Config) (*DeDiRegistryClient, func() error, e
 
 // Lookup implements RegistryLookup interface - calls the DeDi lookup endpoint and returns Subscription.
 func (c *DeDiRegistryClient) Lookup(ctx context.Context, req *model.Subscription) ([]model.Subscription, error) {
+	// Extract subscriber ID from request
+	subscriberID := req.SubscriberID
+	log.Infof(ctx, "DeDI Registry: Looking up subscriber ID: %s", subscriberID)
+	if subscriberID == "" {
+		return nil, fmt.Errorf("subscriber_id is required for DeDi lookup")
+	}
+
 	lookupURL := fmt.Sprintf("%s/dedi/lookup/%s/%s/%s",
-		c.config.BaseURL, c.config.NamespaceID, c.config.RegistryName, c.config.RecordName)
+		c.config.BaseURL, c.config.NamespaceID, c.config.RegistryName, subscriberID)
 
 	httpReq, err := retryablehttp.NewRequest("GET", lookupURL, nil)
 	if err != nil {
@@ -131,25 +135,32 @@ func (c *DeDiRegistryClient) Lookup(ctx context.Context, req *model.Subscription
 		return nil, fmt.Errorf("invalid response format: missing data field")
 	}
 
-	schema, ok := data["schema"].(map[string]interface{})
+	// Extract details field which contains the actual participant data
+	details, ok := data["details"].(map[string]interface{})
 	if !ok {
-		return nil, fmt.Errorf("invalid response format: missing schema field")
+		return nil, fmt.Errorf("invalid response format: missing details field")
 	}
 
-	// Extract values using type assertions with error checking
-	entityName, ok := schema["entity_name"].(string)
+	// Extract values from details field
+	entityName, ok := details["entity_name"].(string)
 	if !ok || entityName == "" {
 		return nil, fmt.Errorf("invalid or missing entity_name in response")
 	}
 
-	entityURL, ok := schema["entity_url"].(string)
+	entityURL, ok := details["entity_url"].(string)
 	if !ok || entityURL == "" {
 		return nil, fmt.Errorf("invalid or missing entity_url in response")
 	}
 
-	publicKey, ok := schema["publicKey"].(string)
+	publicKey, ok := details["publicKey"].(string)
 	if !ok || publicKey == "" {
 		return nil, fmt.Errorf("invalid or missing publicKey in response")
+	}
+
+	// Extract record_name as the subscriber ID (fallback to entity_name)
+	recordName, _ := data["record_name"].(string)
+	if recordName == "" {
+		recordName = entityName
 	}
 
 	state, _ := data["state"].(string)
@@ -159,7 +170,7 @@ func (c *DeDiRegistryClient) Lookup(ctx context.Context, req *model.Subscription
 	// Convert to Subscription format
 	subscription := model.Subscription{
 		Subscriber: model.Subscriber{
-			SubscriberID: entityName,
+			SubscriberID: recordName, // Use record_name as subscriber ID
 			URL:          entityURL,
 			Domain:       req.Domain,
 			Type:         req.Type,
