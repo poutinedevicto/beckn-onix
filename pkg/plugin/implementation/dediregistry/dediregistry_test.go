@@ -139,11 +139,14 @@ func TestLookup(t *testing.T) {
 				"data": map[string]interface{}{
 					"record_name": "bap-network",
 					"details": map[string]interface{}{
-						"entity_name": "BAP Network Provider",
-						"entity_url":  "https://bap-network.example.com",
-						"publicKey":   "test-public-key",
-						"keyType":     "ed25519",
-						"keyFormat":   "base64",
+						"key_id":              "b692d295-5425-40f5-af77-d62646841dca",
+						"signing_public_key": "test-public-key",
+						"encr_public_key":    "test-encr-key",
+						"status":             "SUBSCRIBED",
+						"created":            "2023-01-01T00:00:00Z",
+						"updated":            "2023-01-01T00:00:00Z",
+						"valid_from":         "2023-01-01T00:00:00Z",
+						"valid_until":        "2024-01-01T00:00:00Z",
 					},
 					"state":      "live",
 					"created_at": "2023-01-01T00:00:00Z",
@@ -192,8 +195,8 @@ func TestLookup(t *testing.T) {
 		if subscription.SigningPublicKey != "test-public-key" {
 			t.Errorf("Expected signing_public_key test-public-key, got %s", subscription.SigningPublicKey)
 		}
-		if subscription.Status != "live" {
-			t.Errorf("Expected status live, got %s", subscription.Status)
+		if subscription.Status != "SUBSCRIBED" {
+			t.Errorf("Expected status SUBSCRIBED, got %s", subscription.Status)
 		}
 	})
 
@@ -259,13 +262,13 @@ func TestLookup(t *testing.T) {
 	})
 
 	// Test missing required fields
-	t.Run("missing entity_name", func(t *testing.T) {
+	t.Run("missing signing_public_key", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			response := map[string]interface{}{
 				"data": map[string]interface{}{
 					"details": map[string]interface{}{
-						"entity_url": "https://test.example.com",
-						"publicKey":  "test-public-key",
+						"key_id": "test-key-id",
+						"status": "SUBSCRIBED",
 					},
 				},
 			}
@@ -294,7 +297,7 @@ func TestLookup(t *testing.T) {
 		}
 		_, err = client.Lookup(ctx, req)
 		if err == nil {
-			t.Error("Expected error for missing details field, got nil")
+			t.Error("Expected error for missing signing_public_key, got nil")
 		}
 	})
 

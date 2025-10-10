@@ -1,41 +1,22 @@
 # DeDi Registry Plugin
 
-A **registry type plugin** for Beckn-ONIX that integrates with DeDi (Decentralized Digital Infrastructure) registry services. This plugin implements the `RegistryLookup` interface, making it a specialized type of registry plugin.
+A **registry type plugin** for Beckn-ONIX that integrates with DeDi (Decentralized Digital Infrastructure) registry services.
 
 ## Overview
 
-The DeDi Registry plugin is a **registry implementation** that enables Beckn-ONIX to lookup participant records from DeDi registries. It converts DeDi API responses to standard Beckn Subscription format, allowing it to work interchangeably with the standard registry plugin through the same `RegistryLookup` interface.
-
-## Plugin Type Classification
-
-**Registry Type Plugin**: This plugin is a **type of registry plugin**, not a standalone plugin category.
-
-- **Interface**: Implements `RegistryLookup` interface (same as standard registry plugin)
-- **Interchangeable**: Can replace or work alongside standard registry plugin
-- **Manager Access**: Available via `manager.Registry()` method
-- **Plugin Category**: Registry
-
-## Features
-
-- **Standard Registry Interface**: Implements `RegistryLookup` interface for seamless integration
-- **DeDi API Integration**: GET requests to DeDi registry endpoints with Bearer authentication
-- **Dynamic Participant Lookup**: Uses subscriber IDs from request context (not static configuration)
-- **Data Conversion**: Converts DeDi responses to standard Beckn Subscription format
-- **HTTP Retry Logic**: Built-in retry mechanism using retryablehttp client
-- **Timeout Control**: Configurable request timeouts
-
+The DeDi Registry plugin is a **registry implementation** that enables Beckn-ONIX to lookup participant records from remote DeDi registries via REST API calls.
 
 ## Configuration
 
 ```yaml
 plugins:
-  dediRegistry:
+  registry:
     id: dediregistry
     config:
-      baseURL: "https://dedi-registry.example.com"
-      apiKey: "your-api-key"
-      namespaceID: "beckn-network"
-      registryName: "participants"
+      baseURL: "https://dedi-api.example.com"
+      apiKey: "your-bearer-token"
+      namespaceID: "76EU8BF1gzRGGatgw7wZZb7nEVx77XSwkKDv4UDLdxh8ztty4zmbYU"
+      registryName: "dedi_registry"
       timeout: "30"  # seconds
 ```
 
@@ -44,7 +25,7 @@ plugins:
 | Parameter | Required | Description | Default |
 |-----------|----------|-------------|---------|
 | `baseURL` | Yes | DeDi registry API base URL | - |
-| `apiKey` | Yes | API key for authentication | - |
+| `apiKey` | Yes | Bearer token for API authentication | - |
 | `namespaceID` | Yes | DeDi namespace identifier | - |
 | `registryName` | Yes | Registry name to query | - |
 | `timeout` | No | Request timeout in seconds | 30 |
@@ -106,7 +87,12 @@ if len(results) > 0 {
 {baseURL}/dedi/lookup/{namespaceID}/{registryName}/{subscriberID}
 ```
 
-**Example**: `https://dedi-registry.com/dedi/lookup/beckn-network/participants/bap-network`
+**Example**: `https://dedi-api.com/dedi/lookup/76EU8BF1gzRGGatgw7wZZb7nEVx77XSwkKDv4UDLdxh8ztty4zmbYU/dedi_registry/bap-network`
+
+### Authentication
+```
+Authorization: Bearer {apiKey}
+```
 
 ### Expected DeDi Response Format
 
@@ -114,35 +100,47 @@ if len(results) > 0 {
 {
   "message": "Resource retrieved successfully",
   "data": {
-    "record_name": "bap.example.com",
+    "namespace": "dediregistry",
+    "namespace_id": "76EU8BF1gzRGGatgw7wZZb7nEVx77XSwkKDv4UDLdxh8ztty4zmbYU",
+    "registry_name": "dedi_registry",
+    "record_name": "bap-network",
     "details": {
-      "entity_name": "BAP Example Provider",
-      "entity_url": "https://bap.example.com",
-      "publicKey": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...",
-      "keyType": "RSA",
-      "keyFormat": "PEM"
+      "key_id": "b692d295-5425-40f5-af77-d62646841dca",
+      "signing_public_key": "YK3Xqc83Bpobc1UT0ObAe6mBJMiAOkceIsNtmph9WTc=",
+      "encr_public_key": "YK3Xqc83Bpobc1UT0ObAe6mBJMiAOkceIsNtmph9WTc=",
+      "status": "SUBSCRIBED",
+      "created": "2024-01-15T10:00:00Z",
+      "updated": "2024-01-15T10:00:00Z",
+      "valid_from": "2024-01-01T00:00:00Z",
+      "valid_until": "2025-12-31T23:59:59Z"
     },
     "state": "live",
-    "created_at": "2025-09-23T07:45:10.357Z",
-    "updated_at": "2025-09-23T07:51:39.923Z"
+    "created_at": "2025-10-09T06:09:48.295Z"
   }
 }
 ```
 
-### Converted to Standard Beckn Format
+### Field Mapping to Beckn Subscription
 
-The plugin converts DeDi responses to standard Beckn Subscription format:
+| DeDi Field | Beckn Field | Description |
+|------------|-------------|-------------|
+| `data.record_name` | `subscriber_id` | Participant identifier |
+| `data.details.key_id` | `key_id` | Unique key identifier |
+| `data.details.signing_public_key` | `signing_public_key` | Public key for signature verification |
+| `data.details.encr_public_key` | `encr_public_key` | Public key for encryption |
+| `data.details.status` | `status` | Subscription status |
+| `data.details.created` | `created` | Creation timestamp |
+| `data.details.updated` | `updated` | Last update timestamp |
+| `data.details.valid_from` | `valid_from` | Key validity start |
+| `data.details.valid_until` | `valid_until` | Key validity end |
 
-```json
-{
-  "subscriber_id": "bap.example.com",
-  "url": "https://bap.example.com",
-  "signing_public_key": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...",
-  "status": "live",
-  "created": "2025-09-23T07:45:10.357Z",
-  "updated": "2025-09-23T07:51:39.923Z"
-}
-```
+### Lookup Flow
+
+1. **Request Processing**: Plugin extracts `subscriber_id` from incoming request
+2. **API Call**: Makes GET request to DeDi API with static config + dynamic subscriber ID
+3. **Response Parsing**: Extracts data from `data.details` object
+4. **Format Conversion**: Maps DeDi fields to Beckn Subscription format
+5. **Return**: Returns array of Subscription objects
 
 ## Testing
 
@@ -152,28 +150,32 @@ Run plugin tests:
 go test ./pkg/plugin/implementation/dediregistry -v
 ```
 
+Test coverage includes:
+- Configuration validation
+- Successful API responses
+- HTTP error handling
+- Network failures
+- Invalid JSON responses
+- Missing required fields
+
 ## Dependencies
 
 - `github.com/hashicorp/go-retryablehttp`: HTTP client with retry logic
 - Standard Go libraries for HTTP and JSON handling
 
-## Plugin Architecture
+## Error Handling
 
-### Registry Type Plugin Classification
+- **Configuration Errors**: Missing required config parameters
+- **Network Errors**: Connection failures, timeouts
+- **HTTP Errors**: Non-200 status codes from DeDi API
+- **Data Errors**: Missing required fields in response
+- **Validation Errors**: Empty subscriber ID in request
 
-```
-Plugin Manager
-├── Registry Plugins (RegistryLookup interface)
-│   ├── registry (standard YAML-based registry)
-│   └── dediregistry (DeDi API-based registry) ← This plugin
-└── Other Plugin Types...
-```
 
 ### Integration Notes
 
 - **Plugin Type**: Registry implementation
 - **Interface**: Implements `RegistryLookup` interface with `Lookup(ctx, *model.Subscription) ([]model.Subscription, error)`
-- **Interchangeable**: Drop-in replacement for standard registry plugin
 - **Manager Access**: Available via `manager.Registry()` method (same as standard registry)
 - **Dynamic Lookup**: Uses `req.SubscriberID` from request context, not static configuration
 - **Data Conversion**: Automatically converts DeDi API format to Beckn Subscription format
