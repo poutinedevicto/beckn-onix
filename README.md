@@ -117,20 +117,24 @@ The **Beckn Protocol** is an open protocol that enables location-aware, local co
 - `publish`: Publishes messages to queue
 
 #### 3. **Plugin Types**
-- **Cache**: Redis-based response caching
-- **Router**: YAML-based routing rules engine
-- **Signer/SignValidator**: Ed25519 signature handling
-- **SchemaValidator**: JSON schema validation
-- **KeyManager**: HashiCorp Vault integration
-- **Publisher**: RabbitMQ message publishing
-- **Encrypter/Decrypter**: AES encryption/decryption
+- **Cache**: Redis-based response caching 
+- **Router**: YAML-based routing rules engine for request forwarding
+- **Signer**: Ed25519 digital signature creation for outgoing requests
+- **SignValidator**: Ed25519 signature validation for incoming requests
+- **SchemaValidator**: JSON schema validation 
+- **KeyManager**: HashiCorp Vault integration for production key management
+- **SimpleKeyManager**: Embedded key management for local development (no external dependencies)
+- **Publisher**: RabbitMQ message publishing for asynchronous processing
+- **Encrypter**: AES encryption for sensitive data protection
+- **Decrypter**: AES decryption for encrypted data processing
 - **ReqPreprocessor**: Request preprocessing (UUID generation, headers)
-
+- **Registry**: Standard Beckn registry lookup for participant information
+- **DeDiRegistry**: DeDi registry to lookup public keys for NP.
 ## Quick Start
 
 ### Prerequisites
 
-- Go 1.23 or higher
+- Go 1.24 or higher
 - Redis (for caching)
 - Docker (optional, for containerized deployment)
 - HashiCorp Vault (optional, for production key management)
@@ -151,20 +155,53 @@ go build -o server cmd/adapter/main.go
 
 3. **Build plugins**
 ```bash
-./build-plugins.sh
+./install/build-plugins.sh
 ```
 
-4. **Start Redis** (if not running)
+4. **Extract schemas**
+```bash
+unzip schemas.zip
+```
+
+5. **Start Redis** (if not running)
 ```bash
 docker run -d -p 6379:6379 redis:alpine
 ```
 
-5. **Run the application**
+6. **Run the application**
+
+**Note**: You can modify the configuration file to suit your environment before starting the server.
+
 ```bash
-./server --config=config/local-dev.yaml
+./server --config=config/local-simple.yaml
 ```
 
 The server will start on `http://localhost:8081`
+
+### Automated Setup (Recommended)
+
+For local setup ,starts only redis and onix adapter:
+
+```bash
+# Clone and setup everything automatically
+git clone https://github.com/beckn/beckn-onix.git
+cd beckn-onix/install
+chmod +x setup.sh
+./setup.sh
+```
+
+This automated script will:
+- Start Redis container
+- Build all plugins with correct Go version
+- Build the adapter server
+- Start ONIX adapter in Docker
+- Create environment configuration
+
+**Note:** Extract schemas before running: `unzip schemas.zip` (required for schema validation)
+
+**Services Started:**
+- Redis: localhost:6379
+- ONIX Adapter: http://localhost:8081
 
 ### Docker Deployment
 
@@ -173,9 +210,11 @@ The server will start on `http://localhost:8081`
 docker build -f Dockerfile.adapter -t beckn-onix:latest .
 
 # Run the container
-docker run -p 8080:8080 \
+docker run -p 8081:8081 \
   -v $(pwd)/config:/app/config \
   -v $(pwd)/schemas:/app/schemas \
+  -v $(pwd)/plugins:/app/plugins \
+  -e CONFIG_FILE="/app/config/local-simple.yaml" \
   beckn-onix:latest
 ```
 
@@ -186,14 +225,13 @@ docker run -p 8080:8080 \
 ```bash
 curl -X POST http://localhost:8081/bap/caller/search \
   -H "Content-Type: application/json" \
-  -H "Authorization: Signature keyId=\"bap.example.com|key1|ed25519\",algorithm=\"ed25519\",created=\"1234567890\",expires=\"1234567990\",headers=\"(created) (expires) digest\",signature=\"base64signature\"" \
   -d '{
     "context": {
       "domain": "nic2004:60221",
       "country": "IND",
       "city": "std:080",
       "action": "search",
-      "core_version": "0.9.4",
+      "version": "0.9.4", 
       "bap_id": "bap.example.com",
       "bap_uri": "https://bap.example.com/beckn",
       "transaction_id": "550e8400-e29b-41d4-a716-446655440000",
@@ -265,10 +303,11 @@ modules:
 
 ### Deployment Modes
 
-1. **Combined Mode**: Single instance handling both BAP and BPP (`config/onix/`)
-2. **BAP-Only Mode**: Dedicated buyer-side deployment (`config/onix-bap/`)
-3. **BPP-Only Mode**: Dedicated seller-side deployment (`config/onix-bpp/`)
-4. **Local Development**: Simplified configuration (`config/local-dev.yaml`)
+1. **Combined Mode**: Single instance handling both BAP and BPP (`config/onix/`) - Uses `secretskeymanager` (HashiCorp Vault) for production key management
+2. **BAP-Only Mode**: Dedicated buyer-side deployment (`config/onix-bap/`) 
+3. **BPP-Only Mode**: Dedicated seller-side deployment (`config/onix-bpp/`) 
+4. **Local Development Combined Mode**: Simplified configuration (`config/local-simple.yaml`) - Uses `simplekeymanager` with embedded Ed25519 keys, no vault setup needed.
+5. **Local Development Combined Mode (Alternative)**: Development configuration (`config/local-dev.yaml`) - Uses `keymanager` vault setup needed
 
 ## API Endpoints
 
