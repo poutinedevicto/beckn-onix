@@ -25,13 +25,14 @@ func (d dediRegistryProvider) New(ctx context.Context, config map[string]string)
 		ApiKey:       config["apiKey"],
 		NamespaceID:  config["namespaceID"],
 		RegistryName: config["registryName"],
-		RecordName:   config["recordName"],
 	}
 
 	// Parse timeout if provided
 	if timeoutStr, exists := config["timeout"]; exists && timeoutStr != "" {
 		if timeout, err := strconv.Atoi(timeoutStr); err == nil {
 			dediConfig.Timeout = timeout
+		} else {
+			log.Warnf(ctx, "Invalid timeout value '%s', using default", timeoutStr)
 		}
 	}
 

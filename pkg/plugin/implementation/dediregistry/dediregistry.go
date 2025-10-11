@@ -19,7 +19,6 @@ type Config struct {
 	ApiKey       string `yaml:"apiKey" json:"apiKey"`
 	NamespaceID  string `yaml:"namespaceID" json:"namespaceID"`
 	RegistryName string `yaml:"registryName" json:"registryName"`
-	RecordName   string `yaml:"recordName" json:"recordName"`
 	Timeout      int    `yaml:"timeout" json:"timeout"`
 }
 
@@ -46,9 +45,7 @@ func validate(cfg *Config) error {
 	if cfg.RegistryName == "" {
 		return fmt.Errorf("registryName cannot be empty")
 	}
-	if cfg.RecordName == "" {
-		return fmt.Errorf("recordName cannot be empty")
-	}
+
 	return nil
 }
 
@@ -87,8 +84,15 @@ func New(ctx context.Context, cfg *Config) (*DeDiRegistryClient, func() error, e
 
 // Lookup implements RegistryLookup interface - calls the DeDi lookup endpoint and returns Subscription.
 func (c *DeDiRegistryClient) Lookup(ctx context.Context, req *model.Subscription) ([]model.Subscription, error) {
+	// Extract subscriber ID from request
+	subscriberID := req.SubscriberID
+	log.Infof(ctx, "DeDI Registry: Looking up subscriber ID: %s", subscriberID)
+	if subscriberID == "" {
+		return nil, fmt.Errorf("subscriber_id is required for DeDi lookup")
+	}
+
 	lookupURL := fmt.Sprintf("%s/dedi/lookup/%s/%s/%s",
-		c.config.BaseURL, c.config.NamespaceID, c.config.RegistryName, c.config.RecordName)
+		c.config.BaseURL, c.config.NamespaceID, c.config.RegistryName, subscriberID)
 
 	httpReq, err := retryablehttp.NewRequest("GET", lookupURL, nil)
 	if err != nil {
@@ -116,7 +120,7 @@ func (c *DeDiRegistryClient) Lookup(ctx context.Context, req *model.Subscription
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	// Parse response using local variables
+	// Parse response
 	var responseData map[string]interface{}
 	err = json.Unmarshal(body, &responseData)
 	if err != nil {
@@ -125,49 +129,56 @@ func (c *DeDiRegistryClient) Lookup(ctx context.Context, req *model.Subscription
 
 	log.Debugf(ctx, "DeDi lookup request successful")
 
-	// Extract data using local variables
+	// Extract data field
 	data, ok := responseData["data"].(map[string]interface{})
 	if !ok {
 		return nil, fmt.Errorf("invalid response format: missing data field")
 	}
 
-	schema, ok := data["schema"].(map[string]interface{})
+	// Extract details field
+	details, ok := data["details"].(map[string]interface{})
 	if !ok {
-		return nil, fmt.Errorf("invalid response format: missing schema field")
+		return nil, fmt.Errorf("invalid response format: missing details field")
 	}
 
-	// Extract values using type assertions with error checking
-	entityName, ok := schema["entity_name"].(string)
-	if !ok || entityName == "" {
-		return nil, fmt.Errorf("invalid or missing entity_name in response")
+	// Extract required fields from details
+	keyID, _ := details["key_id"].(string)
+	signingPublicKey, ok := details["signing_public_key"].(string)
+	if !ok || signingPublicKey == "" {
+		return nil, fmt.Errorf("invalid or missing signing_public_key in response")
 	}
-
-	entityURL, ok := schema["entity_url"].(string)
-	if !ok || entityURL == "" {
-		return nil, fmt.Errorf("invalid or missing entity_url in response")
+	encrPublicKey, _ := details["encr_public_key"].(string)
+	detailsStatus, ok := details["status"].(string)
+	if !ok {
+		return nil, fmt.Errorf("missing status in response")
 	}
+	detailsCreated, _ := details["created"].(string)
+	detailsUpdated, _ := details["updated"].(string)
+	validFromStr, _ := details["valid_from"].(string)
+	validUntilStr, _ := details["valid_until"].(string)
 
-	publicKey, ok := schema["publicKey"].(string)
-	if !ok || publicKey == "" {
-		return nil, fmt.Errorf("invalid or missing publicKey in response")
+	// Extract record_name as subscriber ID
+	recordName, _ := data["record_name"].(string)
+	if recordName == "" {
+		recordName = subscriberID
 	}
-
-	state, _ := data["state"].(string)
-	createdAt, _ := data["created_at"].(string)
-	updatedAt, _ := data["updated_at"].(string)
 
 	// Convert to Subscription format
 	subscription := model.Subscription{
 		Subscriber: model.Subscriber{
-			SubscriberID: entityName,
-			URL:          entityURL,
+			SubscriberID: recordName,
+			URL:          req.URL,
 			Domain:       req.Domain,
 			Type:         req.Type,
 		},
-		SigningPublicKey: publicKey,
-		Status:           state,
-		Created:          parseTime(createdAt),
-		Updated:          parseTime(updatedAt),
+		KeyID:            keyID,
+		SigningPublicKey: signingPublicKey,
+		EncrPublicKey:    encrPublicKey,
+		ValidFrom:        parseTime(validFromStr),
+		ValidUntil:       parseTime(validUntilStr),
+		Status:           detailsStatus,
+		Created:          parseTime(detailsCreated),
+		Updated:          parseTime(detailsUpdated),
 	}
 
 	return []model.Subscription{subscription}, nil

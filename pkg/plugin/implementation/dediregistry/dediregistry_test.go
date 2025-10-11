@@ -28,7 +28,6 @@ func TestValidate(t *testing.T) {
 				ApiKey:       "test-key",
 				NamespaceID:  "test-namespace",
 				RegistryName: "test-registry",
-				RecordName:   "test-record",
 			},
 			wantErr: true,
 		},
@@ -39,7 +38,6 @@ func TestValidate(t *testing.T) {
 				ApiKey:       "",
 				NamespaceID:  "test-namespace",
 				RegistryName: "test-registry",
-				RecordName:   "test-record",
 			},
 			wantErr: true,
 		},
@@ -50,7 +48,6 @@ func TestValidate(t *testing.T) {
 				ApiKey:       "test-key",
 				NamespaceID:  "",
 				RegistryName: "test-registry",
-				RecordName:   "test-record",
 			},
 			wantErr: true,
 		},
@@ -61,18 +58,6 @@ func TestValidate(t *testing.T) {
 				ApiKey:       "test-key",
 				NamespaceID:  "test-namespace",
 				RegistryName: "",
-				RecordName:   "test-record",
-			},
-			wantErr: true,
-		},
-		{
-			name: "empty recordName",
-			config: &Config{
-				BaseURL:      "https://test.com",
-				ApiKey:       "test-key",
-				NamespaceID:  "test-namespace",
-				RegistryName: "test-registry",
-				RecordName:   "",
 			},
 			wantErr: true,
 		},
@@ -83,7 +68,6 @@ func TestValidate(t *testing.T) {
 				ApiKey:       "test-key",
 				NamespaceID:  "test-namespace",
 				RegistryName: "test-registry",
-				RecordName:   "test-record",
 			},
 			wantErr: false,
 		},
@@ -107,7 +91,6 @@ func TestNew(t *testing.T) {
 		ApiKey:       "test-key",
 		NamespaceID:  "test-namespace",
 		RegistryName: "test-registry",
-		RecordName:   "test-record",
 		Timeout:      30,
 	}
 
@@ -142,7 +125,7 @@ func TestLookup(t *testing.T) {
 			if r.Method != "GET" {
 				t.Errorf("Expected GET request, got %s", r.Method)
 			}
-			if r.URL.Path != "/dedi/lookup/test-namespace/test-registry/test-record" {
+			if r.URL.Path != "/dedi/lookup/test-namespace/test-registry/bap-network" {
 				t.Errorf("Unexpected path: %s", r.URL.Path)
 			}
 			// Verify Authorization header
@@ -150,16 +133,22 @@ func TestLookup(t *testing.T) {
 				t.Errorf("Expected Bearer test-key, got %s", auth)
 			}
 
-			// Return mock response using map structure
+			// Return mock response using actual DeDI format
 			response := map[string]interface{}{
-				"message": "success",
+				"message": "Resource retrieved successfully",
 				"data": map[string]interface{}{
-					"schema": map[string]interface{}{
-						"entity_name": "test.example.com",
-						"entity_url":  "https://test.example.com",
-						"publicKey":   "test-public-key",
+					"record_name": "bap-network",
+					"details": map[string]interface{}{
+						"key_id":              "b692d295-5425-40f5-af77-d62646841dca",
+						"signing_public_key": "test-public-key",
+						"encr_public_key":    "test-encr-key",
+						"status":             "SUBSCRIBED",
+						"created":            "2023-01-01T00:00:00Z",
+						"updated":            "2023-01-01T00:00:00Z",
+						"valid_from":         "2023-01-01T00:00:00Z",
+						"valid_until":        "2024-01-01T00:00:00Z",
 					},
-					"state":      "active",
+					"state":      "live",
 					"created_at": "2023-01-01T00:00:00Z",
 					"updated_at": "2023-01-01T00:00:00Z",
 				},
@@ -174,7 +163,6 @@ func TestLookup(t *testing.T) {
 			ApiKey:       "test-key",
 			NamespaceID:  "test-namespace",
 			RegistryName: "test-registry",
-			RecordName:   "test-record",
 			Timeout:      30,
 		}
 
@@ -184,7 +172,11 @@ func TestLookup(t *testing.T) {
 		}
 		defer closer()
 
-		req := &model.Subscription{}
+		req := &model.Subscription{
+			Subscriber: model.Subscriber{
+				SubscriberID: "bap-network",
+			},
+		}
 		results, err := client.Lookup(ctx, req)
 		if err != nil {
 			t.Errorf("Lookup() error = %v", err)
@@ -197,14 +189,43 @@ func TestLookup(t *testing.T) {
 		}
 
 		subscription := results[0]
-		if subscription.Subscriber.SubscriberID != "test.example.com" {
-			t.Errorf("Expected subscriber_id test.example.com, got %s", subscription.Subscriber.SubscriberID)
+		if subscription.Subscriber.SubscriberID != "bap-network" {
+			t.Errorf("Expected subscriber_id bap-network, got %s", subscription.Subscriber.SubscriberID)
 		}
 		if subscription.SigningPublicKey != "test-public-key" {
 			t.Errorf("Expected signing_public_key test-public-key, got %s", subscription.SigningPublicKey)
 		}
-		if subscription.Status != "active" {
-			t.Errorf("Expected status active, got %s", subscription.Status)
+		if subscription.Status != "SUBSCRIBED" {
+			t.Errorf("Expected status SUBSCRIBED, got %s", subscription.Status)
+		}
+	})
+
+	// Test empty subscriber ID
+	t.Run("empty subscriber ID", func(t *testing.T) {
+		config := &Config{
+			BaseURL:      "https://test.com",
+			ApiKey:       "test-key",
+			NamespaceID:  "test-namespace",
+			RegistryName: "test-registry",
+		}
+
+		client, closer, err := New(ctx, config)
+		if err != nil {
+			t.Fatalf("New() error = %v", err)
+		}
+		defer closer()
+
+		req := &model.Subscription{
+			Subscriber: model.Subscriber{
+				SubscriberID: "",
+			},
+		}
+		_, err = client.Lookup(ctx, req)
+		if err == nil {
+			t.Error("Expected error for empty subscriber ID, got nil")
+		}
+		if err.Error() != "subscriber_id is required for DeDi lookup" {
+			t.Errorf("Expected specific error message, got %v", err)
 		}
 	})
 
@@ -221,7 +242,6 @@ func TestLookup(t *testing.T) {
 			ApiKey:       "test-key",
 			NamespaceID:  "test-namespace",
 			RegistryName: "test-registry",
-			RecordName:   "test-record",
 		}
 
 		client, closer, err := New(ctx, config)
@@ -230,7 +250,11 @@ func TestLookup(t *testing.T) {
 		}
 		defer closer()
 
-		req := &model.Subscription{}
+		req := &model.Subscription{
+			Subscriber: model.Subscriber{
+				SubscriberID: "bap-network",
+			},
+		}
 		_, err = client.Lookup(ctx, req)
 		if err == nil {
 			t.Error("Expected error for 404 response, got nil")
@@ -238,13 +262,13 @@ func TestLookup(t *testing.T) {
 	})
 
 	// Test missing required fields
-	t.Run("missing entity_name", func(t *testing.T) {
+	t.Run("missing signing_public_key", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			response := map[string]interface{}{
 				"data": map[string]interface{}{
-					"schema": map[string]interface{}{
-						"entity_url": "https://test.example.com",
-						"publicKey":  "test-public-key",
+					"details": map[string]interface{}{
+						"key_id": "test-key-id",
+						"status": "SUBSCRIBED",
 					},
 				},
 			}
@@ -258,7 +282,6 @@ func TestLookup(t *testing.T) {
 			ApiKey:       "test-key",
 			NamespaceID:  "test-namespace",
 			RegistryName: "test-registry",
-			RecordName:   "test-record",
 		}
 
 		client, closer, err := New(ctx, config)
@@ -267,10 +290,14 @@ func TestLookup(t *testing.T) {
 		}
 		defer closer()
 
-		req := &model.Subscription{}
+		req := &model.Subscription{
+			Subscriber: model.Subscriber{
+				SubscriberID: "bap-network",
+			},
+		}
 		_, err = client.Lookup(ctx, req)
 		if err == nil {
-			t.Error("Expected error for missing entity_name, got nil")
+			t.Error("Expected error for missing signing_public_key, got nil")
 		}
 	})
 
@@ -287,7 +314,6 @@ func TestLookup(t *testing.T) {
 			ApiKey:       "test-key",
 			NamespaceID:  "test-namespace",
 			RegistryName: "test-registry",
-			RecordName:   "test-record",
 		}
 
 		client, closer, err := New(ctx, config)
@@ -296,7 +322,11 @@ func TestLookup(t *testing.T) {
 		}
 		defer closer()
 
-		req := &model.Subscription{}
+		req := &model.Subscription{
+			Subscriber: model.Subscriber{
+				SubscriberID: "bap-network",
+			},
+		}
 		_, err = client.Lookup(ctx, req)
 		if err == nil {
 			t.Error("Expected error for invalid JSON, got nil")
@@ -310,7 +340,6 @@ func TestLookup(t *testing.T) {
 			ApiKey:       "test-key",
 			NamespaceID:  "test-namespace",
 			RegistryName: "test-registry",
-			RecordName:   "test-record",
 			Timeout:      1,
 		}
 
@@ -320,7 +349,11 @@ func TestLookup(t *testing.T) {
 		}
 		defer closer()
 
-		req := &model.Subscription{}
+		req := &model.Subscription{
+			Subscriber: model.Subscriber{
+				SubscriberID: "bap-network",
+			},
+		}
 		_, err = client.Lookup(ctx, req)
 		if err == nil {
 			t.Error("Expected network error, got nil")
@@ -343,7 +376,6 @@ func TestLookup(t *testing.T) {
 			ApiKey:       "test-key",
 			NamespaceID:  "test-namespace",
 			RegistryName: "test-registry",
-			RecordName:   "test-record",
 		}
 
 		client, closer, err := New(ctx, config)
@@ -352,7 +384,11 @@ func TestLookup(t *testing.T) {
 		}
 		defer closer()
 
-		req := &model.Subscription{}
+		req := &model.Subscription{
+			Subscriber: model.Subscriber{
+				SubscriberID: "bap-network",
+			},
+		}
 		_, err = client.Lookup(ctx, req)
 		if err == nil {
 			t.Error("Expected error for missing data field, got nil")
