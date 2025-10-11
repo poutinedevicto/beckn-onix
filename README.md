@@ -137,10 +137,8 @@ The **Beckn Protocol** is an open protocol that enables location-aware, local co
 - Go 1.24 or higher
 - Redis (for caching)
 - Docker (optional, for containerized deployment)
-- HashiCorp Vault (optional, for production key management)
-- RabbitMQ (optional, for async messaging)
 
-### Installation
+### Build and Run
 
 1. **Clone the repository**
 ```bash
@@ -168,9 +166,19 @@ unzip schemas.zip
 docker run -d -p 6379:6379 redis:alpine
 ```
 
-6. **Run the application**
+6. **Update the config file**
 
-**Note**: You can modify the configuration file to suit your environment before starting the server.
+**Note**: You can modify the configuration file to suit your environment before starting the server. ONIX adapter/server must be restarted to reflect any change made to the config file.
+
+The following config change is required to all cache related entries in order to connect to `redis` that was started earlier.
+```yaml
+        cache:
+          id: cache
+          config:
+            addr: localhost:6379
+```
+
+7. **Run the application**
 
 ```bash
 ./server --config=config/local-simple.yaml
@@ -180,7 +188,7 @@ The server will start on `http://localhost:8081`
 
 ### Automated Setup (Recommended)
 
-For local setup ,starts only redis and onix adapter:
+For local setup, starts only redis and onix adapter:
 
 ```bash
 # Clone and setup everything automatically
