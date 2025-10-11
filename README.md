@@ -336,6 +336,7 @@ modules:
 ## Documentation
 
 - **[Setup Guide](SETUP.md)**: Complete installation, configuration, and deployment instructions
+- **[Configuration Guide](CONFIG.md)**: Description of Configuration concepts and all config parameters 
 - **[Contributing](CONTRIBUTING.md)**: Guidelines for contributors
 - **[Governance](GOVERNANCE.md)**: Project governance model
 - **[License](LICENSE)**: Apache 2.0 license details
