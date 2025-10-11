@@ -61,35 +61,78 @@ redis-cli --version
 
 ## Quick Start (Recommended)
 
-For a complete Beckn network setup with all services, use our automated setup:
+### Option 1: ONIX Adapter Only (Fastest)
+
+For just the ONIX adapter with Redis (no Vault required):
 
 ```bash
 # Clone the repository
 git clone https://github.com/beckn/beckn-onix.git
-cd beckn-onix
+cd beckn-onix/install
 
-# Run the setup (includes only adapter services)
-cd install
+# Run the automated setup
 chmod +x setup.sh
 ./setup.sh
-
-# Start the Beckn-ONIX server
-source .env.vault && ./server --config=config/local-dev.yaml
 ```
 
 This will automatically:
-- Run & Configure Redis and Vault
+- Start Redis container
 - Build all plugins
-- Set up authentication
-- Create environment variables
+- Build adapter server
+- Start ONIX adapter in Docker using `local-simple.yaml` (with `simplekeymanager`)
+- Create .env file
 
 **Services Started:**
-- Vault: http://localhost:8200
 - Redis: localhost:6379
-- Beckn-ONIX: http://localhost:8081
+- ONIX Adapter: http://localhost:8081
 
-**To stop all services:** `docker compose down`
-**To view logs:** `docker compose logs -f [service-name]`
+**Key Management:** Uses `simplekeymanager` with embedded keys - no Vault setup required!
+
+**Note:** Extract schemas before running: `unzip schemas.zip` (required for schema validation)
+
+### Option 2: Complete Beckn Network
+
+For a full local Beckn network with all components:
+
+```bash
+cd beckn-onix/install
+chmod +x beckn-onix.sh
+./beckn-onix.sh
+
+# Choose option 3: "Set up a network on your local machine"
+```
+
+This will automatically:
+- Install and configure Registry service
+- Install and configure Gateway service
+- Create BAP Protocol Server registry entries
+- Create BPP Protocol Server registry entries
+- Build ONIX adapter plugins
+- **Detect config file** from `docker-compose-adapter2.yml`
+- **Extract keys** from protocol server configs (`bap-client.yml`, `bpp-client.yml`)
+- **Auto-update simplekeymanager** in the detected config file with extracted keys
+- Start ONIX Adapter with Redis
+
+**Services Started:**
+- Registry: http://localhost:3030
+- Gateway: http://localhost:4030  
+- Sandbox API: http://localhost:3000 
+- ONIX Adapter: http://localhost:8081
+- Redis: localhost:6379
+
+**Note:** Extract schemas before running: `unzip schemas.zip` (required for schema validation)
+
+**Intelligent Key Management:**
+The script reads `docker-compose-adapter2.yml` to detect which config file is being used (default: `local-simple.yaml`), extracts keys from protocol server configs, and automatically updates the `simplekeymanager` section in that config file - no manual configuration needed!
+
+**Note:** Update `docker-compose-adapter2.yml` to use the correct config file:
+- For combined setup (simplekeymanager): `CONFIG_FILE: "/app/config/local-simple.yaml"`
+- For combined setup (keymanager with Vault): `CONFIG_FILE: "/app/config/local-dev.yaml"`
+- For combined setup (production): `CONFIG_FILE: "/app/config/onix/adapter.yaml"`
+- For BAP only: `CONFIG_FILE: "/app/config/onix-bap/adapter.yaml"`
+- For BPP only: `CONFIG_FILE: "/app/config/onix-bpp/adapter.yaml"`
+
+The script will automatically detect and configure whichever file you specify.
 
 ---
 
@@ -130,7 +173,7 @@ The application uses a plugin architecture. Build all plugins:
 # Make the build script executable
 chmod +x install/build-plugins.sh
 
-# Build all plugins
+# Build all plugins (run from project root)
 ./install/build-plugins.sh
 ```
 
@@ -141,7 +184,10 @@ This creates `.so` files in the `plugins/` directory:
 - `signvalidator.so` - Signature validation
 - `schemavalidator.so` - JSON schema validation
 - `keymanager.so` - Vault integration
+- `simplekeymanager.so` - Simple key management (no Vault)
 - `publisher.so` - RabbitMQ publishing
+- `registry.so` - Registry lookup
+- `dediregistry.so` - registry type plugin for public key lookup
 - `encrypter.so` / `decrypter.so` - Encryption/decryption
 - `reqpreprocessor.so` - Request preprocessing
 
@@ -177,221 +223,102 @@ redis-cli ping
 # Expected: PONG
 ```
 
-### Step 6: Create Required Directories
+### Step 6: Setup Schemas
 
 ```bash
-# Create schemas directory for validation
+# Create schemas directory
 mkdir -p schemas
+
+# Extract schemas from the provided schemas.zip
+unzip schemas.zip
 
 # Create logs directory (optional)
 mkdir -p logs
 ```
 
+**Note:** The `schemas.zip` file is included in the repository. You must extract it before running the adapter for schema validation to work.
+
 ### Step 7: Configure for Local Development
 
-Create or modify `config/local-dev.yaml`:
+For local development, use the existing `config/local-simple.yaml` which includes:
+- All 4 modules (BAP + BPP)
+- Simple key management (no Vault required)
+- Redis caching
+- Basic routing configuration
 
-```yaml
-appName: "onix-local"
-log:
-  level: debug
-  destinations:
-    - type: stdout
-  contextKeys:
-    - transaction_id
-    - message_id
-    - subscriber_id
-    - module_id
-http:
-  port: 8081
-  timeout:
-    read: 30
-    write: 30
-    idle: 30
-pluginManager:
-  root: ./plugins
-modules:
-  - name: bapTxnReceiver
-    path: /bap/receiver/
-    handler:
-      type: std
-      role: bap
-      registryUrl: http://localhost:8080/reg
-      plugins:
-        keyManager:
-          id: keymanager
-          config:
-            projectID: beckn-onix-local
-            vaultAddr: http://localhost:8200
-            kvVersion: v2
-            mountPath: beckn
-        cache:
-          id: cache
-          config:
-            addr: localhost:6379
-        schemaValidator:
-          id: schemavalidator
-          config:
-            schemaDir: ./schemas
-        signValidator:
-          id: signvalidator
-          config:
-            publicKeyPath: beckn/keys
-        router:
-          id: router
-          config:
-            routingConfig: ./config/local-routing.yaml
-        middleware:
-          - id: reqpreprocessor
-            config:
-              uuidKeys: transaction_id,message_id
-              role: bap
-      steps:
-        - validateSign
-        - addRoute
-        - validateSchema
-  
-  - name: bapTxnCaller
-    path: /bap/caller/
-    handler:
-      type: std
-      role: bap
-      registryUrl: http://localhost:8080/reg
-      plugins:
-        keyManager:
-          id: keymanager
-          config:
-            projectID: beckn-onix-local
-            vaultAddr: http://localhost:8200
-            kvVersion: v2
-            mountPath: beckn
-        cache:
-          id: cache
-          config:
-            addr: localhost:6379
-        router:
-          id: router
-          config:
-            routingConfig: ./config/local-routing.yaml
-        signer:
-          id: signer
-        middleware:
-          - id: reqpreprocessor
-            config:
-              uuidKeys: transaction_id,message_id
-              role: bap
-      steps:
-        - addRoute
-        - sign
-  
-  - name: bppTxnReceiver
-    path: /bpp/receiver/
-    handler:
-      type: std
-      role: bpp
-      registryUrl: http://localhost:8080/reg
-      plugins:
-        keyManager:
-          id: keymanager
-          config:
-            projectID: beckn-onix-local
-            vaultAddr: http://localhost:8200
-            kvVersion: v2
-            mountPath: beckn
-        cache:
-          id: cache
-          config:
-            addr: localhost:6379
-        schemaValidator:
-          id: schemavalidator
-          config:
-            schemaDir: ./schemas
-        signValidator:
-          id: signvalidator
-          config:
-            publicKeyPath: beckn/keys
-        router:
-          id: router
-          config:
-            routingConfig: ./config/local-routing.yaml
-      steps:
-        - validateSign
-        - addRoute
-        - validateSchema
-  
-  - name: bppTxnCaller
-    path: /bpp/caller/
-    handler:
-      type: std
-      role: bpp
-      registryUrl: http://localhost:8080/reg
-      plugins:
-        keyManager:
-          id: keymanager
-          config:
-            projectID: beckn-onix-local
-            vaultAddr: http://localhost:8200
-            kvVersion: v2
-            mountPath: beckn
-        cache:
-          id: cache
-          config:
-            addr: localhost:6379
-        router:
-          id: router
-          config:
-            routingConfig: ./config/local-routing.yaml
-        signer:
-          id: signer
-      steps:
-        - addRoute
-        - sign
+The file is pre-configured with embedded sample keys and ready to use for standalone testing.
+
+**Note:** When using `beckn-onix.sh` (Option 2 in Quick Start), the script automatically extracts keys from protocol server configs and updates the `simplekeymanager` section in this file - no manual configuration needed!
+
+### Step 8: Configuration Files Overview
+
+The `config/` directory contains deployment configurations:
+
+```
+config/
+├── local-dev.yaml                      # Local development with Vault
+├── local-simple.yaml                   # Local development (no Vault)
+├── local-routing.yaml                  # Local routing rules
+├── local-simple-routing.yaml           # Simple routing rules
+├── local-simple-routing-BAPCaller.yaml # BAP caller routing
+├── local-simple-routing-BPPReceiver.yaml # BPP receiver routing
+├── onix/                               # Combined BAP+BPP deployment
+│   ├── adapter.yaml
+│   ├── plugin.yaml
+│   ├── bapTxnCaller-routing.yaml
+│   ├── bapTxnReciever-routing.yaml
+│   ├── bppTxnCaller-routing.yaml
+│   └── bppTxnReciever-routing.yaml
+├── onix-bap/                           # BAP-only deployment
+│   ├── adapter.yaml
+│   ├── plugin.yaml
+│   ├── bapTxnCaller-routing.yaml
+│   └── bapTxnReciever-routing.yaml
+└── onix-bpp/                           # BPP-only deployment
+    ├── adapter.yaml
+    ├── plugin.yaml
+    ├── bppTxnCaller-routing.yaml
+    └── bppTxnReciever-routing.yaml
 ```
 
-### Step 8: Create Routing Configuration
+Routing configuration files for local-simple are already provided and referenced in `local-simple.yaml`.
 
-Create `config/local-routing.yaml`:
 
-```yaml
-routingRules:
-  - domain: "nic2004:60221"  # Mobility domain
-    version: "0.9.4"
-    targetType: "url"
-    target:
-      url: "http://localhost:9001/beckn"
-    endpoints:
-      - search
-      - select
-      - init
-      - confirm
-      - status
-      - track
-      - cancel
-      - update
-      - rating
-      - support
-  
-  - domain: "nic2004:52110"  # Retail domain
-    version: "1.0.0"
-    targetType: "url"
-    target:
-      url: "http://localhost:9002/beckn"
-    endpoints:
-      - search
-      - select
-      - init
-      - confirm
-      - status
-      - track
-      - cancel
-      - update
-      - rating
-      - support
+### Step 9: Run the Application
+
+**Choose your key management approach:**
+
+#### Option A: Simple Key Manager (Recommended for Local Development)
+
+**No Vault setup required!** Use this for quick local testing.
+
+```bash
+# Run with local-simple.yaml (uses simplekeymanager plugin)
+./server --config=config/local-simple.yaml
+
+# Or run with go
+go run cmd/adapter/main.go --config=config/local-simple.yaml
 ```
 
-### Step 9: Run the Application with HashiCorp Vault
+The `local-simple.yaml` config uses `simplekeymanager` plugin with embedded keys - no external dependencies needed.
 
-Since the configuration now includes the keyManager plugin for signing capabilities, you need to set up Vault:
+**With Docker:**
+```bash
+cd install
+docker compose -f docker-compose-adapter2.yml up -d
+```
+
+The server will start on `http://localhost:8081`
+
+---
+
+#### Option B: HashiCorp Vault (Production-like Setup)
+
+**Only use this if your config has `keymanager` plugin (not `simplekeymanager`).**
+
+Configs that require Vault:
+- `config/local-dev.yaml` - uses `keymanager` plugin
+- `config/onix/adapter.yaml` - uses `secretskeymanager` plugin
 
 #### Quick Setup (Recommended)
 
@@ -551,6 +478,7 @@ curl http://localhost:8081/bap/receiver/
 ```
 
 ---
+
 
 ## Production Setup
 
@@ -799,22 +727,29 @@ sudo systemctl status beckn-onix
 
 ```
 config/
-├── local-dev.yaml              # Local development
-├── local-routing.yaml          # Local routing rules
-├── onix/                       # Combined BAP+BPP
+├── local-dev.yaml                      # Local development with Vault
+├── local-simple.yaml                   # Local development (no Vault)
+├── local-routing.yaml                  # Local routing rules
+├── local-simple-routing.yaml           # Simple routing rules
+├── local-simple-routing-BAPCaller.yaml # BAP caller routing
+├── local-simple-routing-BPPReceiver.yaml # BPP receiver routing
+├── onix/                               # Combined BAP+BPP deployment
 │   ├── adapter.yaml
+│   ├── plugin.yaml
 │   ├── bapTxnCaller-routing.yaml
-│   ├── bapTxnReceiver-routing.yaml
+│   ├── bapTxnReciever-routing.yaml
 │   ├── bppTxnCaller-routing.yaml
-│   └── bppTxnReceiver-routing.yaml
-├── onix-bap/                   # BAP-only deployment
+│   └── bppTxnReciever-routing.yaml
+├── onix-bap/                           # BAP-only deployment
 │   ├── adapter.yaml
+│   ├── plugin.yaml
 │   ├── bapTxnCaller-routing.yaml
-│   └── bapTxnReceiver-routing.yaml
-└── onix-bpp/                   # BPP-only deployment
+│   └── bapTxnReciever-routing.yaml
+└── onix-bpp/                           # BPP-only deployment
     ├── adapter.yaml
+    ├── plugin.yaml
     ├── bppTxnCaller-routing.yaml
-    └── bppTxnReceiver-routing.yaml
+    └── bppTxnReciever-routing.yaml
 ```
 
 ### Module Configuration
@@ -1042,11 +977,27 @@ Open `http://localhost:3000` in your browser.
 # Build the image
 docker build -f Dockerfile.adapter -t beckn-onix:latest .
 
-# Tag for registry
+# Tag for registry (optional)
 docker tag beckn-onix:latest registry.example.com/beckn-onix:v1.0.0
 ```
 
 ### Docker Compose Setup
+
+**Important: Create docker.yaml config and plugins bundle first**
+```bash
+# Create symlink to existing config
+cd config
+ln -s onix/adapter.yaml docker.yaml
+cd ..
+
+# Build plugins first
+./install/build-plugins.sh
+
+# Create plugins bundle for Docker
+cd plugins
+zip -r plugins_bundle.zip *.so
+cd ..
+```
 
 Create `docker-compose.yml`:
 
@@ -1063,7 +1014,7 @@ services:
     command: redis-server --appendonly yes
 
   vault:
-    image: vault:1.15
+    image: hashicorp/vault:latest
     ports:
       - "8200:8200"
     environment:
@@ -1088,7 +1039,7 @@ services:
   beckn-onix:
     image: beckn-onix:latest
     ports:
-      - "8080:8080"
+      - "8081:8081"
     depends_on:
       - redis
       - vault
@@ -1103,7 +1054,7 @@ services:
     volumes:
       - ./config:/app/config
       - ./schemas:/app/schemas
-      - ./plugins:/app/plugins
+      - ./plugins:/mnt/gcs/plugins
     command: ["./server", "--config=/app/config/docker.yaml"]
 
 volumes:
@@ -1112,8 +1063,12 @@ volumes:
   rabbitmq-data:
 ```
 
-Run with:
+**Important: Build the image first**
 ```bash
+# Build the beckn-onix image before running docker-compose
+docker build -f Dockerfile.adapter -t beckn-onix:latest .
+
+# Then run docker-compose
 docker-compose up -d
 ```
 
@@ -1313,17 +1268,16 @@ curl http://localhost:8081/health
 ### Test Search Request
 
 ```bash
-# Create a test search request
+# Create a test search request (no Authorization header needed - ONIX auto-generates it)
 curl -X POST http://localhost:8081/bap/caller/search \
   -H "Content-Type: application/json" \
-  -H "Authorization: Signature keyId=\"test.bap.com|key1|ed25519\",algorithm=\"ed25519\",created=\"$(date +%s)\",expires=\"$(date -d '+5 minutes' +%s)\",headers=\"(created) (expires) digest\",signature=\"test-signature\"" \
   -d '{
     "context": {
       "domain": "nic2004:52110",
       "country": "IND",
       "city": "std:080",
       "action": "search",
-      "core_version": "1.0.0",
+      "version": "1.0.0",
       "bap_id": "test.bap.com",
       "bap_uri": "https://test.bap.com/beckn",
       "transaction_id": "'$(uuidgen)'",
@@ -1363,9 +1317,8 @@ Use Apache Bench or similar tools:
 # Install ab
 sudo apt-get install apache2-utils
 
-# Simple load test
+# Simple load test (no Authorization header needed - ONIX auto-generates it)
 ab -n 1000 -c 10 -p search.json -T application/json \
-  -H "Authorization: Signature keyId=\"test|key1|ed25519\",..." \
   http://localhost:8081/bap/caller/search
 ```
 
@@ -1417,8 +1370,8 @@ done
 
 **Solution**:
 ```bash
-# Rebuild plugins
-./build-plugins.sh
+# Rebuild plugins from project root
+./install/build-plugins.sh
 
 # Check plugin files exist
 ls -la plugins/
@@ -1426,6 +1379,18 @@ ls -la plugins/
 # Verify plugin compatibility
 go version
 file plugins/cache.so
+```
+
+**Error**: `plugin was built with a different version of package internal/godebugs`
+
+**Solution**: Plugin version mismatch - rebuild with same Go version:
+```bash
+# Clean and rebuild plugins
+rm -rf plugins/*.so
+./install/build-plugins.sh
+
+# Ensure same Go version for server and plugins
+go version
 ```
 
 #### 2. Redis Connection Issues
@@ -1570,7 +1535,7 @@ redis-cli CONFIG SET timeout 300
     "country": "IND",
     "city": "std:080",
     "action": "search",
-    "core_version": "1.0.0",
+    "version": "1.0.0",
     "bap_id": "buyerapp.com",
     "bap_uri": "https://buyerapp.com/beckn",
     "transaction_id": "6d5f4c3b-2a1e-4b8c-9f7d-3e2a1b5c8d9f",
@@ -1612,7 +1577,7 @@ redis-cli CONFIG SET timeout 300
     "country": "IND",
     "city": "std:080",
     "action": "select",
-    "core_version": "1.0.0",
+    "version": "1.0.0",
     "bap_id": "buyerapp.com",
     "bap_uri": "https://buyerapp.com/beckn",
     "bpp_id": "sellerapp.com",
@@ -1676,7 +1641,7 @@ redis-cli CONFIG SET timeout 300
     "country": "IND",
     "city": "std:080",
     "action": "init",
-    "core_version": "1.0.0",
+    "version": "1.0.0",
     "bap_id": "buyerapp.com",
     "bap_uri": "https://buyerapp.com/beckn",
     "bpp_id": "sellerapp.com",
@@ -1780,7 +1745,7 @@ redis-cli CONFIG SET timeout 300
     "country": "IND",
     "city": "std:080",
     "action": "confirm",
-    "core_version": "1.0.0",
+    "version": "1.0.0",
     "bap_id": "buyerapp.com",
     "bap_uri": "https://buyerapp.com/beckn",
     "bpp_id": "sellerapp.com",
@@ -1953,13 +1918,15 @@ redis-cli CONFIG SET timeout 300
 
 ### Authorization Header Structure
 
-All requests must include proper authorization:
+**Note:** ONIX adapter automatically generates and adds the Authorization signature header to outgoing requests. You don't need to manually create it when calling ONIX endpoints.
+
+For reference, the Authorization header format is:
 
 ```
 Authorization: Signature keyId="{subscriber_id}|{key_id}|{algorithm}",algorithm="{algorithm}",created="{created}",expires="{expires}",headers="(created) (expires) digest",signature="{base64_signature}"
 ```
 
-Example generation in bash:
+Example of how ONIX generates it internally:
 ```bash
 #!/bin/bash
 
