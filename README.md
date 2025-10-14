@@ -205,23 +205,28 @@ This automated script will:
 - Start ONIX adapter in Docker
 - Create environment configuration
 
-**Note:** Extract schemas before running: `unzip schemas.zip` (required for schema validation)
+**Note:** Extract schemas before running: `unzip schemas.zip` (required for schema validation) and before running the automated setup, build the adapter image ,update docker-compose-adapter2.yaml to use the correct image
 
+```bash
+# from the repository root
+docker build -f Dockerfile.adapter-with-plugins -t beckn-onix:latest .
+```
 **Services Started:**
 - Redis: localhost:6379
 - ONIX Adapter: http://localhost:8081
 
 ### Docker Deployment
 
+**Note:** Start redis before before running onix adapter.
+
 ```bash
 # Build the Docker image
-docker build -f Dockerfile.adapter -t beckn-onix:latest .
+ docker build -t beckn-onix:latest -f Dockerfile.adapter-with-plugins .
 
 # Run the container
 docker run -p 8081:8081 \
   -v $(pwd)/config:/app/config \
   -v $(pwd)/schemas:/app/schemas \
-  -v $(pwd)/plugins:/app/plugins \
   -e CONFIG_FILE="/app/config/local-simple.yaml" \
   beckn-onix:latest
 ```

@@ -88,7 +88,12 @@ This will automatically:
 
 **Key Management:** Uses `simplekeymanager` with embedded keys - no Vault setup required!
 
-**Note:** Extract schemas before running: `unzip schemas.zip` (required for schema validation)
+**Note:** Extract schemas before running: `unzip schemas.zip` (required for schema validation) and before running the automated setup, build the adapter image ,update docker-compose-adapter2.yaml to use the correct image
+
+```bash
+# from the repository root
+docker build -f Dockerfile.adapter-with-plugins -t beckn-onix:latest .
+```
 
 ### Option 2: Complete Beckn Network
 
@@ -120,12 +125,17 @@ This will automatically:
 - ONIX Adapter: http://localhost:8081
 - Redis: localhost:6379
 
-**Note:** Extract schemas before running: `unzip schemas.zip` (required for schema validation)
+**Note:** Extract schemas before running: `unzip schemas.zip` (required for schema validation) and before running the automated full-network setup, build the adapter image , update docker-compose-adapter2.yaml to use the correct image
+
+```bash
+# from the repository root
+docker build -f Dockerfile.adapter-with-plugins -t beckn-onix:latest .
+```
 
 **Intelligent Key Management:**
 The script reads `docker-compose-adapter2.yml` to detect which config file is being used (default: `local-simple.yaml`), extracts keys from protocol server configs, and automatically updates the `simplekeymanager` section in that config file - no manual configuration needed!
 
-**Note:** Update `docker-compose-adapter2.yml` to use the correct config file:
+**Note:** Update `docker-compose-adapter2.yml` to use the correct config file and correct image:
 - For combined setup (simplekeymanager): `CONFIG_FILE: "/app/config/local-simple.yaml"`
 - For combined setup (keymanager with Vault): `CONFIG_FILE: "/app/config/local-dev.yaml"`
 - For combined setup (production): `CONFIG_FILE: "/app/config/onix/adapter.yaml"`
