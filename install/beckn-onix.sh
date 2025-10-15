@@ -625,18 +625,18 @@ validate_config_modules() {
     if [[ "$key_type" == "BAP" && $has_bap_modules -eq 0 ]]; then
         echo "${RED}Error: BAP deployment selected but no BAP modules found in config file${NC}"
         echo "${BLUE}Config file: $config_file${NC}"
-        echo "${YELLOW}Please update docker-compose-adapter2.yml to use a config file with BAP modules${NC}"
+        echo "${YELLOW}Please update docker-compose-adapter.yml to use a config file with BAP modules${NC}"
         return 1
     elif [[ "$key_type" == "BPP" && $has_bpp_modules -eq 0 ]]; then
         echo "${RED}Error: BPP deployment selected but no BPP modules found in config file${NC}"
         echo "${BLUE}Config file: $config_file${NC}"
-        echo "${YELLOW}Please update docker-compose-adapter2.yml to use a config file with BPP modules${NC}"
+        echo "${YELLOW}Please update docker-compose-adapter.yml to use a config file with BPP modules${NC}"
         return 1
     elif [[ "$key_type" == "BOTH" && ($has_bap_modules -eq 0 || $has_bpp_modules -eq 0) ]]; then
         echo "${RED}Error: Combined deployment selected but missing modules in config file${NC}"
         echo "${BLUE}Config file: $config_file${NC}"
         echo "${BLUE}BAP modules found: $has_bap_modules, BPP modules found: $has_bpp_modules${NC}"
-        echo "${YELLOW}Please update docker-compose-adapter2.yml to use a config file with both BAP and BPP modules${NC}"
+        echo "${YELLOW}Please update docker-compose-adapter.yml to use a config file with both BAP and BPP modules${NC}"
         return 1
     fi
     
@@ -656,9 +656,9 @@ configure_onix_registry_keys() {
     
     # Determine config file - only auto-detect if not provided
     if [ -z "$config_file" ]; then
-        local docker_config=$(grep -o '/app/config/[^"]*' docker-compose-adapter2.yml | head -1)
+        local docker_config=$(grep -o '/app/config/[^"]*' docker-compose-adapter.yml | head -1)
         if [ -z "$docker_config" ]; then
-            echo "${RED}Error: Could not find config file in docker-compose-adapter2.yml${NC}"
+            echo "${RED}Error: Could not find config file in docker-compose-adapter.yml${NC}"
             return 1
         fi
         config_file="${docker_config/\/app\/config\//../config/}"
@@ -878,6 +878,14 @@ install_adapter() {
     local key_type=${1:-"BOTH"}
     local config_file=$2
     
+    # Create schemas directory for validation
+    if [ ! -d "schemas" ]; then
+        mkdir -p schemas
+        echo -e "${GREEN}✓ Created schemas directory${NC}"
+    else
+        echo -e "${YELLOW}schemas directory already exists${NC}"
+    fi
+
     echo "${GREEN}................Building plugins for ONIX Adapter................${NC}"
     
     # Build plugins the same way as setup.sh

@@ -74,4 +74,4 @@ bap_docker_compose_file=docker-compose-bap.yml
 registry_docker_compose_file=docker-compose-registry.yml
 gateway_docker_compose_file=docker-compose-gateway.yml
 gcl_docker_compose_file=docker-compose-gcl.yml
-adapter_docker_compose_file=docker-compose-adapter2.yml
+adapter_docker_compose_file=docker-compose-adapter.yml
