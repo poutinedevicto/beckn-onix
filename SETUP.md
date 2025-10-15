@@ -88,7 +88,7 @@ This will automatically:
 
 **Key Management:** Uses `simplekeymanager` with embedded keys - no Vault setup required!
 
-**Note:** Extract schemas before running: `unzip schemas.zip` (required for schema validation) and before running the automated setup, build the adapter image ,update docker-compose-adapter2.yaml to use the correct image
+**Note:** Extract schemas before running: `unzip schemas.zip` (required for schema validation) and before running the automated setup, build the adapter image ,update docker-compose-adapter.yaml to use the correct image (optional)
 
 ```bash
 # from the repository root
@@ -113,7 +113,7 @@ This will automatically:
 - Create BAP Protocol Server registry entries
 - Create BPP Protocol Server registry entries
 - Build ONIX adapter plugins
-- **Detect config file** from `docker-compose-adapter2.yml`
+- **Detect config file** from `docker-compose-adapter.yml`
 - **Extract keys** from protocol server configs (`bap-client.yml`, `bpp-client.yml`)
 - **Auto-update simplekeymanager** in the detected config file with extracted keys
 - Start ONIX Adapter with Redis
@@ -125,7 +125,7 @@ This will automatically:
 - ONIX Adapter: http://localhost:8081
 - Redis: localhost:6379
 
-**Note:** Extract schemas before running: `unzip schemas.zip` (required for schema validation) and before running the automated full-network setup, build the adapter image , update docker-compose-adapter2.yaml to use the correct image
+**Note:** Extract schemas before running: `unzip schemas.zip` (required for schema validation) and before running the automated full-network setup, build the adapter image , update docker-compose-adapter.yaml to use the correct image(optional)
 
 ```bash
 # from the repository root
@@ -133,9 +133,9 @@ docker build -f Dockerfile.adapter-with-plugins -t beckn-onix:latest .
 ```
 
 **Intelligent Key Management:**
-The script reads `docker-compose-adapter2.yml` to detect which config file is being used (default: `local-simple.yaml`), extracts keys from protocol server configs, and automatically updates the `simplekeymanager` section in that config file - no manual configuration needed!
+The script reads `docker-compose-adapter.yml` to detect which config file is being used (default: `local-simple.yaml`), extracts keys from protocol server configs, and automatically updates the `simplekeymanager` section in that config file - no manual configuration needed!
 
-**Note:** Update `docker-compose-adapter2.yml` to use the correct config file and correct image:
+**Note:** Update `docker-compose-adapter.yml` to use the correct config file and correct image (optional):
 - For combined setup (simplekeymanager): `CONFIG_FILE: "/app/config/local-simple.yaml"`
 - For combined setup (keymanager with Vault): `CONFIG_FILE: "/app/config/local-dev.yaml"`
 - For combined setup (production): `CONFIG_FILE: "/app/config/onix/adapter.yaml"`
@@ -315,7 +315,7 @@ The `local-simple.yaml` config uses `simplekeymanager` plugin with embedded keys
 **With Docker:**
 ```bash
 cd install
-docker compose -f docker-compose-adapter2.yml up -d
+docker compose -f docker-compose-adapter.yml up -d onix-adapter
 ```
 
 The server will start on `http://localhost:8081`

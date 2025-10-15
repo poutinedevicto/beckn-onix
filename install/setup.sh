@@ -148,7 +148,7 @@ fi
 # Step 5: Start ONIX Adapter
 echo -e "${YELLOW}Step 5: Starting ONIX Adapter...${NC}"
 cd install
-docker compose -f ./docker-compose-adapter2.yml up -d
+docker compose -f ./docker-compose-adapter.yml up -d onix-adapter
 echo "ONIX Adapter installation successful"
 cd ..
 
@@ -204,8 +204,8 @@ echo -e "3. Test the endpoints:"
 echo -e "   ${YELLOW}curl -X POST http://localhost:8081/bap/caller/search${NC}"
 echo ""
 echo -e "4. Stop all services:"
-echo -e "   ${YELLOW}cd install && docker compose -f docker-compose-adapter.yml down && docker compose -f docker-compose-adapter2.yml down${NC}"
+echo -e "   ${YELLOW}cd install && docker compose -f docker-compose-adapter.yml down ${NC}"
 echo ""
 echo -e "5. View logs:"
-echo -e "   ${YELLOW}cd install && docker compose -f docker-compose-adapter2.yml logs -f onix-adapter${NC}"
+echo -e "   ${YELLOW}cd install && docker compose -f docker-compose-adapter.yml logs -f onix-adapter${NC}"
 echo -e "${GREEN}========================================${NC}"

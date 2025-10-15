@@ -205,7 +205,7 @@ This automated script will:
 - Start ONIX adapter in Docker
 - Create environment configuration
 
-**Note:** Extract schemas before running: `unzip schemas.zip` (required for schema validation) and before running the automated setup, build the adapter image ,update docker-compose-adapter2.yaml to use the correct image
+**Note:** Extract schemas before running: `unzip schemas.zip` (required for schema validation) and before running the automated setup, build the adapter image if required ,update docker-compose-adapter.yaml to use the correct onix image 
 
 ```bash
 # from the repository root
