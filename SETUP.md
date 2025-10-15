@@ -88,7 +88,7 @@ This will automatically:
 
 **Key Management:** Uses `simplekeymanager` with embedded keys - no Vault setup required!
 
-**Note:** Extract schemas before running: `unzip schemas.zip` (required for schema validation) and before running the automated setup, build the adapter image ,update docker-compose-adapter2.yaml to use the correct image
+**Note:** Extract schemas before running: `unzip schemas.zip` (required for schema validation) and before running the automated setup, build the adapter image ,update docker-compose-adapter.yaml to use the correct image (optional)
 
 ```bash
 # from the repository root
@@ -125,7 +125,7 @@ This will automatically:
 - ONIX Adapter: http://localhost:8081
 - Redis: localhost:6379
 
-**Note:** Extract schemas before running: `unzip schemas.zip` (required for schema validation) and before running the automated full-network setup, build the adapter image , update docker-compose-adapter2.yaml to use the correct image
+**Note:** Extract schemas before running: `unzip schemas.zip` (required for schema validation) and before running the automated full-network setup, build the adapter image , update docker-compose-adapter.yaml to use the correct image(optional)
 
 ```bash
 # from the repository root
