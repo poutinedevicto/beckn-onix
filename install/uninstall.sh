@@ -1,4 +1,4 @@
-docker compose -f docker-compose-adapter2.yml down -v
+docker compose -f docker-compose-adapter.yml down -v
 docker compose -f docker-compose-bap.yml down -v
 docker compose -f docker-compose-bpp.yml down -v
 docker compose -f docker-compose-bpp-with-sandbox.yml down -v
