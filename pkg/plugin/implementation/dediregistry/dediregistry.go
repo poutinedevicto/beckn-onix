@@ -15,11 +15,8 @@ import (
 
 // Config holds configuration parameters for the DeDi registry client.
 type Config struct {
-	BaseURL      string `yaml:"baseURL" json:"baseURL"`
-	ApiKey       string `yaml:"apiKey" json:"apiKey"`
-	NamespaceID  string `yaml:"namespaceID" json:"namespaceID"`
-	RegistryName string `yaml:"registryName" json:"registryName"`
-	Timeout      int    `yaml:"timeout" json:"timeout"`
+	BaseURL string `yaml:"baseURL" json:"baseURL"`
+	Timeout int    `yaml:"timeout" json:"timeout"`
 }
 
 // DeDiRegistryClient encapsulates the logic for calling the DeDi registry endpoints.
@@ -36,16 +33,6 @@ func validate(cfg *Config) error {
 	if cfg.BaseURL == "" {
 		return fmt.Errorf("baseURL cannot be empty")
 	}
-	if cfg.ApiKey == "" {
-		return fmt.Errorf("apiKey cannot be empty")
-	}
-	if cfg.NamespaceID == "" {
-		return fmt.Errorf("namespaceID cannot be empty")
-	}
-	if cfg.RegistryName == "" {
-		return fmt.Errorf("registryName cannot be empty")
-	}
-
 	return nil
 }
 
@@ -82,24 +69,27 @@ func New(ctx context.Context, cfg *Config) (*DeDiRegistryClient, func() error, e
 	return client, closer, nil
 }
 
-// Lookup implements RegistryLookup interface - calls the DeDi lookup endpoint and returns Subscription.
+// Lookup implements RegistryLookup interface - calls the DeDi wrapper lookup endpoint and returns Subscription.
 func (c *DeDiRegistryClient) Lookup(ctx context.Context, req *model.Subscription) ([]model.Subscription, error) {
-	// Extract subscriber ID from request
+	// Extract subscriber ID and key ID from request (both come from Authorization header parsing)
 	subscriberID := req.SubscriberID
-	log.Infof(ctx, "DeDI Registry: Looking up subscriber ID: %s", subscriberID)
+	keyID := req.KeyID
+	log.Infof(ctx, "DeDi Registry: Looking up subscriber ID: %s, key ID: %s", subscriberID, keyID)
 	if subscriberID == "" {
 		return nil, fmt.Errorf("subscriber_id is required for DeDi lookup")
 	}
+	if keyID == "" {
+		return nil, fmt.Errorf("key_id is required for DeDi lookup")
+	}
 
-	lookupURL := fmt.Sprintf("%s/dedi/lookup/%s/%s/%s",
-		c.config.BaseURL, c.config.NamespaceID, c.config.RegistryName, subscriberID)
+	lookupURL := fmt.Sprintf("%s/dedi/lookup/%s/subscribers.beckn.one/%s",
+		c.config.BaseURL, subscriberID, keyID)
 
 	httpReq, err := retryablehttp.NewRequest("GET", lookupURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	httpReq.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.config.ApiKey))
 	httpReq = httpReq.WithContext(ctx)
 
 	log.Debugf(ctx, "Making DeDi lookup request to: %s", lookupURL)
@@ -127,60 +117,65 @@ func (c *DeDiRegistryClient) Lookup(ctx context.Context, req *model.Subscription
 		return nil, fmt.Errorf("failed to unmarshal response body: %w", err)
 	}
 
-	log.Debugf(ctx, "DeDi lookup request successful")
+	log.Debugf(ctx, "DeDi lookup request successful, parsing response")
 
 	// Extract data field
 	data, ok := responseData["data"].(map[string]interface{})
 	if !ok {
+		log.Errorf(ctx, nil, "Invalid DeDi response format: missing or invalid data field")
 		return nil, fmt.Errorf("invalid response format: missing data field")
 	}
 
 	// Extract details field
 	details, ok := data["details"].(map[string]interface{})
 	if !ok {
+		log.Errorf(ctx, nil, "Invalid DeDi response format: missing or invalid details field")
 		return nil, fmt.Errorf("invalid response format: missing details field")
 	}
 
 	// Extract required fields from details
-	keyID, _ := details["key_id"].(string)
 	signingPublicKey, ok := details["signing_public_key"].(string)
 	if !ok || signingPublicKey == "" {
 		return nil, fmt.Errorf("invalid or missing signing_public_key in response")
 	}
-	encrPublicKey, _ := details["encr_public_key"].(string)
-	detailsStatus, ok := details["status"].(string)
-	if !ok {
-		return nil, fmt.Errorf("missing status in response")
-	}
-	detailsCreated, _ := details["created"].(string)
-	detailsUpdated, _ := details["updated"].(string)
-	validFromStr, _ := details["valid_from"].(string)
-	validUntilStr, _ := details["valid_until"].(string)
 
-	// Extract record_name as subscriber ID
-	recordName, _ := data["record_name"].(string)
-	if recordName == "" {
-		recordName = subscriberID
+	// Extract fields from details
+	detailsURL, _ := details["url"].(string)
+	detailsType, _ := details["type"].(string)
+	detailsDomain, _ := details["domain"].(string)
+	detailsSubscriberID, _ := details["subscriber_id"].(string)
+
+	// Extract encr_public_key if available (optional field)
+	encrPublicKey, _ := details["encr_public_key"].(string)
+
+	// Extract fields from data level
+	createdAt, _ := data["created_at"].(string)
+	updatedAt, _ := data["updated_at"].(string)
+	isRevoked, _ := data["is_revoked"].(bool)
+
+	// Determine status from is_revoked flag
+	status := "SUBSCRIBED"
+	if isRevoked {
+		status = "UNSUBSCRIBED"
 	}
 
 	// Convert to Subscription format
 	subscription := model.Subscription{
 		Subscriber: model.Subscriber{
-			SubscriberID: recordName,
-			URL:          req.URL,
-			Domain:       req.Domain,
-			Type:         req.Type,
+			SubscriberID: detailsSubscriberID,
+			URL:          detailsURL,
+			Domain:       detailsDomain,
+			Type:         detailsType,
 		},
-		KeyID:            keyID,
+		KeyID:            keyID, // Use original keyID from request
 		SigningPublicKey: signingPublicKey,
-		EncrPublicKey:    encrPublicKey,
-		ValidFrom:        parseTime(validFromStr),
-		ValidUntil:       parseTime(validUntilStr),
-		Status:           detailsStatus,
-		Created:          parseTime(detailsCreated),
-		Updated:          parseTime(detailsUpdated),
+		EncrPublicKey:    encrPublicKey, // May be empty if not provided
+		Status:           status,
+		Created:          parseTime(createdAt),
+		Updated:          parseTime(updatedAt),
 	}
 
+	log.Debugf(ctx, "DeDi lookup successful, found subscription for subscriber: %s", detailsSubscriberID)
 	return []model.Subscription{subscription}, nil
 }
 
