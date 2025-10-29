@@ -10,11 +10,8 @@ func TestDediRegistryProvider_New(t *testing.T) {
 	provider := dediRegistryProvider{}
 
 	config := map[string]string{
-		"baseURL":      "https://test.com",
-		"apiKey":       "test-key",
-		"namespaceID":  "test-namespace",
-		"registryName": "test-registry",
-		"recordName":   "test-record",
+		"url":          "https://test.com/dedi",
+		"registryName": "subscribers.beckn.one",
 		"timeout":      "30",
 	}
 
@@ -47,12 +44,12 @@ func TestDediRegistryProvider_New_InvalidConfig(t *testing.T) {
 		config map[string]string
 	}{
 		{
-			name:   "missing baseURL",
-			config: map[string]string{"apiKey": "test-key"},
+			name:   "missing url",
+			config: map[string]string{"registryName": "subscribers.beckn.one", "timeout": "30"},
 		},
 		{
-			name:   "missing apiKey",
-			config: map[string]string{"baseURL": "https://test.com"},
+			name:   "missing registryName",
+			config: map[string]string{"url": "https://test.com/dedi", "timeout": "30"},
 		},
 		{
 			name:   "empty config",
@@ -75,11 +72,8 @@ func TestDediRegistryProvider_New_InvalidTimeout(t *testing.T) {
 	provider := dediRegistryProvider{}
 
 	config := map[string]string{
-		"baseURL":      "https://test.com",
-		"apiKey":       "test-key",
-		"namespaceID":  "test-namespace",
-		"registryName": "test-registry",
-		"recordName":   "test-record",
+		"url":          "https://test.com/dedi",
+		"registryName": "subscribers.beckn.one",
 		"timeout":      "invalid",
 	}
 
@@ -93,5 +87,22 @@ func TestDediRegistryProvider_New_InvalidTimeout(t *testing.T) {
 	}
 	if closer != nil {
 		closer()
+	}
+}
+
+func TestDediRegistryProvider_New_NilContext(t *testing.T) {
+	provider := dediRegistryProvider{}
+
+	config := map[string]string{
+		"url":          "https://test.com/dedi",
+		"registryName": "subscribers.beckn.one",
+	}
+
+	_, _, err := provider.New(nil, config)
+	if err == nil {
+		t.Error("New() with nil context should return error")
+	}
+	if err.Error() != "context cannot be nil" {
+		t.Errorf("Expected specific error message, got %v", err)
 	}
 }

@@ -15,8 +15,9 @@ import (
 
 // Config holds configuration parameters for the DeDi registry client.
 type Config struct {
-	BaseURL string `yaml:"baseURL" json:"baseURL"`
-	Timeout int    `yaml:"timeout" json:"timeout"`
+	URL          string `yaml:"url" json:"url"`
+	RegistryName string `yaml:"registryName" json:"registryName"`
+	Timeout      int    `yaml:"timeout" json:"timeout"`
 }
 
 // DeDiRegistryClient encapsulates the logic for calling the DeDi registry endpoints.
@@ -30,8 +31,11 @@ func validate(cfg *Config) error {
 	if cfg == nil {
 		return fmt.Errorf("DeDi registry config cannot be nil")
 	}
-	if cfg.BaseURL == "" {
-		return fmt.Errorf("baseURL cannot be empty")
+	if cfg.URL == "" {
+		return fmt.Errorf("url cannot be empty")
+	}
+	if cfg.RegistryName == "" {
+		return fmt.Errorf("registryName cannot be empty")
 	}
 	return nil
 }
@@ -82,8 +86,8 @@ func (c *DeDiRegistryClient) Lookup(ctx context.Context, req *model.Subscription
 		return nil, fmt.Errorf("key_id is required for DeDi lookup")
 	}
 
-	lookupURL := fmt.Sprintf("%s/dedi/lookup/%s/subscribers.beckn.one/%s",
-		c.config.BaseURL, subscriberID, keyID)
+	lookupURL := fmt.Sprintf("%s/lookup/%s/%s/%s",
+		c.config.URL, subscriberID, c.config.RegistryName, keyID)
 
 	httpReq, err := retryablehttp.NewRequest("GET", lookupURL, nil)
 	if err != nil {
@@ -151,13 +155,6 @@ func (c *DeDiRegistryClient) Lookup(ctx context.Context, req *model.Subscription
 	// Extract fields from data level
 	createdAt, _ := data["created_at"].(string)
 	updatedAt, _ := data["updated_at"].(string)
-	isRevoked, _ := data["is_revoked"].(bool)
-
-	// Determine status from is_revoked flag
-	status := "SUBSCRIBED"
-	if isRevoked {
-		status = "UNSUBSCRIBED"
-	}
 
 	// Convert to Subscription format
 	subscription := model.Subscription{
@@ -170,7 +167,6 @@ func (c *DeDiRegistryClient) Lookup(ctx context.Context, req *model.Subscription
 		KeyID:            keyID, // Use original keyID from request
 		SigningPublicKey: signingPublicKey,
 		EncrPublicKey:    encrPublicKey, // May be empty if not provided
-		Status:           status,
 		Created:          parseTime(createdAt),
 		Updated:          parseTime(updatedAt),
 	}

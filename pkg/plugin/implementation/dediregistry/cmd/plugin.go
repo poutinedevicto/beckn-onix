@@ -21,7 +21,8 @@ func (d dediRegistryProvider) New(ctx context.Context, config map[string]string)
 
 	// Create dediregistry.Config directly from map - validation is handled by dediregistry.New
 	dediConfig := &dediregistry.Config{
-		BaseURL: config["baseURL"],
+		URL:          config["url"],
+		RegistryName: config["registryName"],
 	}
 
 	// Parse timeout if provided
