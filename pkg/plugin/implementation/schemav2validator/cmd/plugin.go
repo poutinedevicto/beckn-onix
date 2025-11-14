@@ -18,21 +18,26 @@ func (vp schemav2ValidatorProvider) New(ctx context.Context, config map[string]s
 		return nil, nil, errors.New("context cannot be nil")
 	}
 
-	url, ok := config["url"]
-	if !ok || url == "" {
-		return nil, nil, errors.New("url not configured")
-	}
+	typeVal, hasType := config["type"]
+	locVal, hasLoc := config["location"]
 
-	cacheTTL := 3600
-	if ttlStr, ok := config["cacheTTL"]; ok {
-		if ttl, err := strconv.Atoi(ttlStr); err == nil && ttl > 0 {
-			cacheTTL = ttl
-		}
+	if !hasType || typeVal == "" {
+		return nil, nil, errors.New("type not configured")
+	}
+	if !hasLoc || locVal == "" {
+		return nil, nil, errors.New("location not configured")
 	}
 
 	cfg := &schemav2validator.Config{
-		URL:	url,
-		CacheTTL:	cacheTTL,
+		Type:     typeVal,
+		Location: locVal,
+		CacheTTL: 3600,
+	}
+
+	if ttlStr, ok := config["cacheTTL"]; ok {
+		if ttl, err := strconv.Atoi(ttlStr); err == nil && ttl > 0 {
+			cfg.CacheTTL = ttl
+		}
 	}
 
 	return schemav2validator.New(ctx, cfg)

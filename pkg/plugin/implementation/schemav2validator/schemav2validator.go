@@ -37,7 +37,8 @@ type cachedSpec struct {
 
 // Config struct for Schemav2Validator.
 type Config struct {
-	URL      string
+	Type     string // "url", "file", or "dir"
+	Location string // URL, file path, or directory path
 	CacheTTL int
 }
 
@@ -46,8 +47,14 @@ func New(ctx context.Context, config *Config) (*schemav2Validator, func() error,
 	if config == nil {
 		return nil, nil, fmt.Errorf("config cannot be nil")
 	}
-	if config.URL == "" {
-		return nil, nil, fmt.Errorf("config URL cannot be empty")
+	if config.Type == "" {
+		return nil, nil, fmt.Errorf("config type cannot be empty")
+	}
+	if config.Location == "" {
+		return nil, nil, fmt.Errorf("config location cannot be empty")
+	}
+	if config.Type != "url" && config.Type != "file" && config.Type != "dir" {
+		return nil, nil, fmt.Errorf("config type must be 'url', 'file', or 'dir'")
 	}
 
 	if config.CacheTTL == 0 {
@@ -156,20 +163,23 @@ func (v *schemav2Validator) loadSpec(ctx context.Context) error {
 	var doc *openapi3.T
 	var err error
 
-	urlOrPath := v.config.URL
-
-	if strings.HasPrefix(urlOrPath, "http://") || strings.HasPrefix(urlOrPath, "https://") {
-		u, parseErr := url.Parse(urlOrPath)
+	switch v.config.Type {
+	case "url":
+		u, parseErr := url.Parse(v.config.Location)
 		if parseErr != nil {
 			return fmt.Errorf("failed to parse URL: %v", parseErr)
 		}
 		doc, err = loader.LoadFromURI(u)
-	} else {
-		doc, err = loader.LoadFromFile(urlOrPath)
+	case "file":
+		doc, err = loader.LoadFromFile(v.config.Location)
+	case "dir":
+		return fmt.Errorf("directory loading not yet implemented")
+	default:
+		return fmt.Errorf("unsupported type: %s", v.config.Type)
 	}
 
 	if err != nil {
-		log.Errorf(ctx, err, "Invalid URL or unreachable: %s", urlOrPath)
+		log.Errorf(ctx, err, "Failed to load from %s: %s", v.config.Type, v.config.Location)
 		return fmt.Errorf("failed to load OpenAPI document: %v", err)
 	}
 
@@ -187,7 +197,7 @@ func (v *schemav2Validator) loadSpec(ctx context.Context) error {
 	}
 	v.specMutex.Unlock()
 
-	log.Debugf(ctx, "Loaded OpenAPI spec from %s", urlOrPath)
+	log.Debugf(ctx, "Loaded OpenAPI spec from %s: %s", v.config.Type, v.config.Location)
 	return nil
 }
 
@@ -220,7 +230,7 @@ func (v *schemav2Validator) reloadExpiredSpec(ctx context.Context) {
 		if err := v.loadSpec(ctx); err != nil {
 			log.Errorf(ctx, err, "Failed to reload spec")
 		} else {
-			log.Debugf(ctx, "Reloaded spec from %s", v.config.URL)
+			log.Debugf(ctx, "Reloaded spec from %s: %s", v.config.Type, v.config.Location)
 		}
 	}
 }

@@ -17,7 +17,8 @@ Validates Beckn protocol requests against OpenAPI 3.1 specifications using kin-o
 schemaValidator:
   id: schemav2validator
   config:
-    url: https://example.com/openapi-spec.yaml
+    type: url
+    location: https://example.com/openapi-spec.yaml
     cacheTTL: "3600"
 ```
 
@@ -25,8 +26,11 @@ schemaValidator:
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
-| `url` | string | Yes | - | URL or file path to OpenAPI 3.1 specification |
+| `type` | string | Yes | - | Type of spec source: "url" or "file" ("dir" reserved for future) |
+| `location` | string | Yes | - | URL or file path to OpenAPI 3.1 spec |
 | `cacheTTL` | string | No | "3600" | Cache TTL in seconds before reloading spec |
+
+
 
 ## How It Works
 
@@ -94,25 +98,29 @@ The loader will automatically fetch and resolve the external reference.
 
 ## Example Usage
 
-### Local File
-
-```yaml
-schemaValidator:
-  id: schemav2validator
-  config:
-    url: ./validation-scripts/l2-config/mobility_1.1.0_openapi_3.1.yaml
-    cacheTTL: "3600"
-```
-
 ### Remote URL
 
 ```yaml
 schemaValidator:
   id: schemav2validator
   config:
-    url: https://raw.githubusercontent.com/beckn/protocol-specifications/master/api/beckn-2.0.0.yaml
+    type: url
+    location: https://raw.githubusercontent.com/beckn/protocol-specifications/master/api/beckn-2.0.0.yaml
     cacheTTL: "7200"
 ```
+
+### Local File
+
+```yaml
+schemaValidator:
+  id: schemav2validator
+  config:
+    type: file
+    location: ./validation-scripts/l2-config/mobility_1.1.0_openapi_3.1.yaml
+    cacheTTL: "3600"
+```
+
+
 
 ## Dependencies
 

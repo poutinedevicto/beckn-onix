@@ -63,8 +63,10 @@ func TestNew(t *testing.T) {
 		wantErr bool
 	}{
 		{"nil config", nil, true},
-		{"empty URL", &Config{URL: ""}, true},
-		{"invalid URL", &Config{URL: "http://invalid-domain-12345.com/spec.yaml"}, true},
+		{"empty type", &Config{Type: "", Location: "http://example.com"}, true},
+		{"empty location", &Config{Type: "url", Location: ""}, true},
+		{"invalid type", &Config{Type: "invalid", Location: "http://example.com"}, true},
+		{"invalid URL", &Config{Type: "url", Location: "http://invalid-domain-12345.com/spec.yaml"}, true},
 	}
 
 	for _, tt := range tests {
@@ -83,7 +85,7 @@ func TestValidate_ActionExtraction(t *testing.T) {
 	}))
 	defer server.Close()
 
-	validator, _, err := New(context.Background(), &Config{URL: server.URL, CacheTTL: 3600})
+	validator, _, err := New(context.Background(), &Config{Type: "url", Location: server.URL, CacheTTL: 3600})
 	if err != nil {
 		t.Fatalf("Failed to create validator: %v", err)
 	}
@@ -156,7 +158,7 @@ func TestValidate_NestedValidation(t *testing.T) {
 	}))
 	defer server.Close()
 
-	validator, _, err := New(context.Background(), &Config{URL: server.URL, CacheTTL: 3600})
+	validator, _, err := New(context.Background(), &Config{Type: "url", Location: server.URL, CacheTTL: 3600})
 	if err != nil {
 		t.Fatalf("Failed to create validator: %v", err)
 	}
@@ -200,7 +202,7 @@ func TestLoadSpec_LocalFile(t *testing.T) {
 	}
 	tmpFile.Close()
 
-	validator, _, err := New(context.Background(), &Config{URL: tmpFile.Name(), CacheTTL: 3600})
+	validator, _, err := New(context.Background(), &Config{Type: "file", Location: tmpFile.Name(), CacheTTL: 3600})
 	if err != nil {
 		t.Fatalf("Failed to load local spec: %v", err)
 	}
@@ -219,7 +221,7 @@ func TestCacheTTL_DefaultValue(t *testing.T) {
 	}))
 	defer server.Close()
 
-	validator, _, err := New(context.Background(), &Config{URL: server.URL})
+	validator, _, err := New(context.Background(), &Config{Type: "url", Location: server.URL})
 	if err != nil {
 		t.Fatalf("Failed to create validator: %v", err)
 	}
@@ -235,7 +237,7 @@ func TestValidate_EdgeCases(t *testing.T) {
 	}))
 	defer server.Close()
 
-	validator, _, err := New(context.Background(), &Config{URL: server.URL, CacheTTL: 3600})
+	validator, _, err := New(context.Background(), &Config{Type: "url", Location: server.URL, CacheTTL: 3600})
 	if err != nil {
 		t.Fatalf("Failed to create validator: %v", err)
 	}
