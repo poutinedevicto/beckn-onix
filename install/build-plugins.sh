@@ -18,6 +18,7 @@ plugins=(
     "reqpreprocessor"
     "router"
     "schemavalidator"
+    "schemav2validator"
     "signer"
     "signvalidator"
 )
